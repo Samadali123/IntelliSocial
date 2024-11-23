@@ -36,7 +36,6 @@ const userSchema = mongoose.Schema({
         trim: true,
         minLength: [10, "Bio must contain at least 10 characters long"],
         maxLength: [300, 'Bio should not exceed 300 characters'],
-        set: (value) => value.split(',').map((item) => item.trim())
     },
     posts: [{
         type: mongoose.Schema.Types.ObjectId,

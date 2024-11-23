@@ -10,6 +10,7 @@ exports.getLoginuserProfile = async(req,res, next) => {
     }
 }
 
+
 exports.uploadProfile = async(req, res, next) => {
     try {
         const loginuser = await userModel.findOne({ email: req.user.email });
@@ -30,24 +31,24 @@ exports.uploadProfile = async(req, res, next) => {
     } catch (error) {
         res.status(500).json({success:false, message : error.message})
     }
-}
-
-
+  }
 
 
 exports.editProfile = async(req, res, next) => {
     try {
         const { username, fullname, bio } = req.body;
-        if(! username || fullname || bio) return res.status(403).json({success:false, message : "plsease provide fields for edit profile."})
-        const User = await userModel.findOne({ email: req.user.email })
-       if(! user) return res.status(403).json({success:false, message : "login user is not found"})
+        if(!username || !fullname || !bio) return res.status(403).json({success:false, message : "please provide fields for edit profile."});
+        
+        const User = await userModel.findOne({ email: req.user.email });
+        if(!User) return res.status(403).json({success:false, message : "login user is not found"});
+        
         User.username = username;
         User.fullname = fullname;
-        User.bio = bio;
+       User.bio = bio;
         await User.save();
-        res.status(200).json({success:false, message : "edit profile successfully.", loginuser})
+        res.status(200).json({success:true, message : "edit profile successfully.", loginuser: User});
     } catch (error) {
-        res.status(500).json({success:false,message : error.message})
+        res.status(500).json({success:false, message : error.message});
     }
 }
 

@@ -11,7 +11,6 @@ router.get("/loginuser", authentication, getLoginuserProfile)
 // /profile/uploadprofile
 router.post("/uploadprofile", [authentication, upload.single("profile")], uploadProfile)
 
-
 // /profile/edit/profile
 router.post("/edit/profile", authentication,  editProfile)
 

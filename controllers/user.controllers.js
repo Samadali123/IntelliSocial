@@ -43,7 +43,8 @@ exports.SignUp = async (req, res, next) => {
             password: hashedPassword
         })
         sendToken(newUser, res);
-        res.status(200).json({ success: true, newUser });
+        // res.status(200).json({ success: true, newUser });
+        return res.status(200).json({success:true, newUser})
     } catch (error) {
         res.status(500).json({ success: false, error: error.message })
     }
