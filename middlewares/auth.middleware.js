@@ -1,40 +1,22 @@
-exports.authentication = async (req, res, next) => {
-    try {
-      let token;
-      // Check if the token is in the cookies
-      if (req.cookies && req.cookies.token) {
-        token = req.cookies.token;
-      } else if(req.query || req.params){
-         token = req.query.token || req.params.token
-      } else {
-        // Check if the token is in the Authorization header
-        const authHeader = req.headers.authorization;
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-          token = authHeader.split(' ')[1];
-        }
-      }
-  
-      if (!token) {
-        return res.status(401).json({success:false, message : "Please Sign in to your account"})
-      }
-  
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-  
-      // Find the user by the id in the token
-      const user = await userModel.findById(decoded.id);
-  
-      if (!user) {
-        return res.status(401).render('login', {
-          message: 'User not found. Please log in.'
-        });
-      }
-  
-      // Attach the user object to the request
-      req.user = user;
-      next();
-    } catch (error) {
-      return res.status(401).render('login', {
-        message: 'Invalid token. Please log in.'
-      });
-    }
-  };
+const jwt = require("jsonwebtoken");
+const secretKey = process.env.JWT_SECRET_KEY;
+
+exports.authentication = (req, res, next) => {
+  const token = req.query.token || req.cookies.token || req.params.token;
+
+  if (!token) {
+    return res.status(401).json({ success: false, message: "You don't have a token. Please sign in to continue." });
+  }
+
+  if (!secretKey) {
+    return res.status(500).json({ success: false, message: "JWT Secret key is not configured." });
+  }
+
+  try {
+    const data = jwt.verify(token, secretKey);
+    req.user = data;
+    next();
+  } catch (err) {
+    return res.status(401).json({ success: false, message: "Invalid token. Please sign in again." });
+  }
+}
