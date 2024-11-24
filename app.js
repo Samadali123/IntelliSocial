@@ -75,14 +75,14 @@ app.use("/notes", notesRoutes);
 // Follow routes
 app.use("/follows", followRoutes);
 
+// User feed routes
+app.use("/feed", userFeedRoutes);
+
 // Story routes
 app.use("/stories", storyRoutes);
 
 // Highlights routes
 app.use("/highlights", highlightsRoutes);
-
-// User feed routes
-app.use("/feed", userFeedRoutes);
 
 // reels routes
 app.use("/reels", reelsRoutes)

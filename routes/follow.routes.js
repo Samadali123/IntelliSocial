@@ -28,6 +28,4 @@ router.get(`/search/followers`, authentication, searchUserFollowers);
 router.get(`/search/following`, authentication, searchUserFollowings);
 
 
-
-
 module.exports = router;

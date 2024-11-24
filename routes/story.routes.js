@@ -9,11 +9,11 @@ const { addStory, likeStory, deleteStory, getStories, getSingleStory } = require
 // /stories/add/story
 router.post(`/add/story`, [authentication,upload.single(`storyimage`)],  addStory )
 
-//  /stories
-router.get("/getstories", authentication,  getStories)
+//  /get/stories
+router.get("/get/stories", authentication,  getStories)
 
-//  /stories
-router.get("/getstories", authentication,  getSingleStory)
+//  /get/story
+router.get("/get/story", authentication,  getSingleStory)
 
 // /stories/story/like
 router.put("/story/like", authentication,  likeStory);

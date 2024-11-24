@@ -1,5 +1,7 @@
 const userModel = require("../models/user.model")
 const storyModel = require("../models/story.model")
+const mongoose = require("mongoose")
+
 
 
 exports.addStory = async (req, res) => {
@@ -22,34 +24,34 @@ exports.addStory = async (req, res) => {
     } catch (error) {
         res.status(500).json({ success: false, message: error.message })
     }
-}
+};
 
 
 exports.getStories = async (req, res) => {
     try {
-        const storyuser = await userModel.findOne({ email: req.user.email }).populate(`stories`)
-        const loginuserId = req.params.userId || req.query.userId;
-        if(loginuserId) return res.status(403).json({success: false, message: "please provide user id"})
-        const loginuser = await userModel.findById(loginuserId).exec(); 
-        if(! loginuser) return res.status(404).json({success:false, message: "Login user not found"})   
-            
-        if (logiuser.stories.length > 0) {
-            res.status(200).json({ success: true, stories: loginuser.stories,storyuser})
-        } else {
-            res.status(403).json({ success: false, message: "Do not have any stories" });
-        }
-       
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message })
-    }
+        const loginUser = await userModel.findOne({ email: req.user.email }).populate('stories');
 
+        // Check if the login user exists
+        if (!loginUser) {
+            return res.status(404).json({ success: false, message: "Login user not found!" });
+        }
+
+        // Check if the user has stories
+        if (loginUser.stories.length > 0) {
+            return res.status(200).json({ success: true, stories: loginUser.stories });
+        } else {
+            return res.status(204).json({ success: false, message: "No stories available." });
+        }
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
 }
 
 
 exports.getSingleStory = async(req, res)=>{
     try {
-         const storyID = req.params.storyId || req.query.storyId;
-         if(storyID) return res.status(403).json({success:false, message: "Story Id not found"})
+         const storyID =  req.query.storyId || req.params.storyId;
+         if(! storyID) return res.status(403).json({success:false, message: "Story Id not found"})
          const story = await storyModel.findById(storyID).exec();
         res.status(200).json({success:true, message:"Story fetched successfully", story})
     } catch (error) {

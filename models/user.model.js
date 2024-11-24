@@ -59,7 +59,7 @@ const userSchema = mongoose.Schema({
 
     stories: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: `Story`
+        ref: `story`
     }],
 
     resetpasswordtoken: {
@@ -69,7 +69,7 @@ const userSchema = mongoose.Schema({
 
     likedstories: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: `Story`
+        ref: `story`
     }],
     myStories: {
         type: Array,
@@ -106,7 +106,7 @@ const userSchema = mongoose.Schema({
     }],
     reels: [{
         type: mongoose.Schema.Types.ObjectId,
-        ref: "reel"
+        ref: "reels"
     }]
 }, { versionKey: false, timestamps: true });
 
