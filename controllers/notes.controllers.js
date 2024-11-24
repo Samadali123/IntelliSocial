@@ -24,6 +24,8 @@ exports.createNote = async (req, res) => {
 
 exports.deleteNote = async (req, res) => {
     try {
+        if(! req.user.email) return res.status(404).json({success:false, message:"login user not found"})
+            
         const updatedUser = await userModel.findOneAndUpdate(
             { email: req.user.email },
             { $set: { note: "" } },

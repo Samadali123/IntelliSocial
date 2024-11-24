@@ -66,20 +66,15 @@ app.use("/users", usersRoutes);
 // Profile routes
 app.use("/profile", profileRoutes);
 
-
 // Post routes
 app.use("/posts", postRoutes);
 
-
-// User feed routes
-app.use("/feed", userFeedRoutes);
-
+// Notes routes
+app.use("/notes", notesRoutes);
 
 // Follow routes
 app.use("/follows", followRoutes);
 
-// Notes routes
-app.use("/notes", notesRoutes);
 
 // Story routes
 app.use("/stories", storyRoutes);
@@ -87,11 +82,15 @@ app.use("/stories", storyRoutes);
 // Highlights routes
 app.use("/highlights", highlightsRoutes);
 
-// Settings routes
-app.use("/settings", settingsRoutes);
+// User feed routes
+app.use("/feed", userFeedRoutes);
 
 // reels routes
 app.use("/reels", reelsRoutes)
+
+// Settings routes
+app.use("/settings", settingsRoutes);
+
 
 // Handle unknown routes seamlessly
 app.all("*", (req, res)=>{res.status(404).json({success:false, message : `${req.url} not found`})})
