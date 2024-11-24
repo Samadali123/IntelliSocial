@@ -50,6 +50,6 @@ storySchema.post('findOneAndDelete', async function(doc) {
     }
 });
 
-const Story = mongoose.model('Story', storySchema);
+const Story = mongoose.model('story', storySchema);
 
 module.exports = Story;

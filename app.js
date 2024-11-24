@@ -66,11 +66,14 @@ app.use("/users", usersRoutes);
 // Profile routes
 app.use("/profile", profileRoutes);
 
-// User feed routes
-app.use("/feed", userFeedRoutes);
 
 // Post routes
 app.use("/posts", postRoutes);
+
+
+// User feed routes
+app.use("/feed", userFeedRoutes);
+
 
 // Follow routes
 app.use("/follows", followRoutes);

@@ -7,12 +7,8 @@ const utils = require("../utils/date.utils")
 
 exports.uploadPost = async (req, res) => {
     try {
-
-        if (!req.body.caption || !req.file) {
-            return res.status(400).json({ success: false, message: "Caption is required and image must be selected" });
-        }
-
-        if (!req.body.caption) {
+      const {caption} = req.body;
+        if (! caption) {
             return res.status(400).json({ success: false, message: "Caption is required for a post" });
         }
 
@@ -55,10 +51,9 @@ exports.likePost = async (req, res) => {
             post.likes.splice(post.likes.indexOf(loginuser._id), 1);
 
         }
-
         await post.save();
         await loginuser.save();
-        res.json(200).json({success:true, loginuser, post})
+        res.status(200).json({success:true, loginuser, post, likesofpost:post.likes})
     } catch (error) {
         res.status(500).json({success:false, message : error.message})
     }
@@ -66,52 +61,58 @@ exports.likePost = async (req, res) => {
 
 exports.savePost = async (req, res) => {
     try {
-        const user = await userModel.findOne({ email: req.user.email });
-        if(! user) return res.status(403).json({success:false , message : "login user not found"})
+        const loginuser = await userModel.findOne({ email: req.user.email }); // Corrected to find by email
 
-        const post = await postModel.findById({ _id: req.body.postId || req.query.postId });
-        if(! post) return res.status(403).json({success:false , message : "post not found"})
+        if (!loginuser) return res.status(403).json({ success: false, message: "login user not found" });
 
-        if (user.savedPosts.indexOf(post._id) === -1) {
-            user.savedPosts.push(post._id);
+        const post = await postModel.findById(req.body.postId || req.query.postId); // Simplified findById call
+        if (!post) return res.status(403).json({ success: false, message: "post not found" });
 
+        if (loginuser.savedPosts.indexOf(post._id) === -1) { // Corrected to use loginuser
+            loginuser.savedPosts.push(post._id);
         } else {
-            user.savedPosts.splice(user.savedPosts.indexOf(post._id), 1);
+            loginuser.savedPosts.splice(loginuser.savedPosts.indexOf(post._id), 1);
         }
 
-
-        if (post.savedBy.indexOf(user._id) === -1) {
-            post.savedBy.push(user._id);
+        if (post.savedBy.indexOf(loginuser._id) === -1) { // Corrected to use loginuser
+            post.savedBy.push(loginuser._id);
         } else {
-            post.savedBy.splice(post.savedBy.indexOf(user._id), 1);
+            post.savedBy.splice(post.savedBy.indexOf(loginuser._id), 1);
         }
 
-        await user.save();
+        await loginuser.save(); // Corrected to save loginuser
         await post.save();
 
-        res.status(200).json({success:true, post, loginuser});
+        res.status(200).json({ success: true, post, loginuser, savedby: post.savedBy });
     } catch (error) {
-        res.status(500).json({ success:false, message : error.message })
+        res.status(500).json({ success: false, message: error.message });
     }
 }
 
-
 exports.addComment = async (req, res) => {
     try {
-        const commentpost = await postModel.findOne({ _id: req.params.postid || req.query.postid });
-        if(! commentpost) return res.status(403).json({success:false , message : "comment post not found"})
+        const commentpost = await postModel.findOne({ _id: req.params.postId || req.query.postId });
+        if (!commentpost) {
+            return res.status(404).json({ success: false, message: "Post not found" });
+        }
 
         const loginuser = await userModel.findOne({ email: req.user.email });
-        if(! loginuser) return res.status(403).json({success:false , message : "login user not found"})
+        if (!loginuser) {
+            return res.status(403).json({ success: false, message: "Login user not found" });
+        }
+
+        const { text } = req.body;
+        if (!text) {
+            return res.status(400).json({ success: false, message: "Please provide text for the comment" });
+        }
 
         const createdcomment = await commentModel.create({
-            text: req.body.text,
+            text: text,
             user: loginuser._id,
             post: commentpost._id
         });
 
         commentpost.comments.push(createdcomment._id);
-        loginuser.commentPost.push(commentpost._id);
         await commentpost.save();
         await loginuser.save();
 
@@ -132,9 +133,9 @@ exports.addComment = async (req, res) => {
         let monthName = monthNames[month];
         let formattedDate = `${monthName} ${day}, ${year}`;
         onecomment.formattedDate = formattedDate;
-        res.status(200).json({success:true, loginuser, onecomment})
+        res.status(200).json({ success: true, onecomment, comments: commentpost.comments });
     } catch (error) {
-        res.status(500).json({success:false, message : error.message})
+        res.status(500).json({ success: false, message: error.message });
     }
 }
 
@@ -145,7 +146,7 @@ exports.viewPostComment = async (req, res) => {
         const loginuser = await userModel.findOne({ email: req.user.email });
         if( ! loginuser) return res.status(403).json({success:false, message : "login user not found.."})
 
-        const post = await postModel.findById(req.params.postId);
+        const post = await postModel.findById(req.query.postId || req.params.postId);
         if(! post) return res.status(403).json({success:false , message : "post not found"})
 
         const comments = await commentModel.find({ post: post._id }).populate('user')
@@ -177,7 +178,7 @@ exports.viewPostComment = async (req, res) => {
 exports.getLikedPosts = async (req, res) => {
     try {
         // const post = await postModel.findById({ _id: req.params.postId }).populate(`likes`).populate(`user`, 'stories');
-        const postId = req.query.id || req.params.id;
+        const postId = req.query.postId || req.params.postId;
         if(! postId) return res.status(403).json({success:false, message : "please provdie post Id "})
             const loginuser = await userModel.findOne({ email: req.user.email })
            if(! loginuser) return res.status(403).json({success:false, message : "login user is not found"})
@@ -187,8 +188,7 @@ exports.getLikedPosts = async (req, res) => {
                 path: 'user',
                 select: '_id stories' // _id is always included by default, so this will include _id and stories
             });
-
-        res.status(200).json({success:true,  loginuser, post,})
+        res.status(200).json({success:true,  loginuser, post, totallikes: post.likes.length})
     } catch (error) {
         res.status(500).json({success:false, message : error.message});
     }
@@ -212,12 +212,14 @@ exports.likedPostUserSearch = async (req, res) => {
     }
 }
 
+
+
 exports.likeComment = async (req, res) => {
     try {
         const loginuser = await userModel.findOne({ email: req.user.email });
         if (!loginuser) return res.status(403).json({ success: false, message: "login user not found" });
 
-        const commentId = req.body.commentID || req.query.commentID;
+        const commentId = req.body.commentId || req.query.commentId;
         if (!commentId) return res.status(400).json({ success: false, message: "Comment ID is required." });
         const comment = await commentModel.findOne({ _id: commentId });
         
@@ -231,7 +233,7 @@ exports.likeComment = async (req, res) => {
 
         await loginuser.save();
         await comment.save();
-        res.status(200).json({ success: true, length });
+        res.status(200).json({ success: true, totallikes : comment.likes});
     } catch (error) {
         res.status(500).json({ success: false, message : error.message });
     }
@@ -248,7 +250,7 @@ exports.getRandomUserPost = async (req, res) => {
 
             if (!loginuser) return res.status(403).json({ success: false, message: "login user not found" });
 
-        const openUser = await userModel.findById(req.params.openuser || req.query.openuser)
+        const openUser = await userModel.findById(req.params.openuserId || req.query.openuserId)
             .populate("followers")
             .populate("following");
 
@@ -257,7 +259,7 @@ exports.getRandomUserPost = async (req, res) => {
 
 
         // Find the specific open post and populate its user
-        const openPost = await postModel.findById(req.params.openpost).populate("user");
+        const openPost = await postModel.findById(req.params.openpostId || req.query.openpostId).populate("user");
         if (!openPost) return res.status(403).json({ message: "openPost not found!" });
 
         // Find random posts excluding blocked users and users with private accounts
@@ -301,7 +303,7 @@ exports.getLoginUserPost = async (req, res) => {
 
 
         // const openPost = await postModel.findById(req.params.openpost).populate("user").populate("comments");
-        const openPost = await postModel.findById(req.params.openpostid || req.query.openpostid)
+        const openPost = await postModel.findById(req.params.openpostId || req.query.openpostId)
             .populate("user")
             .populate({
                 path: 'comments',
@@ -353,7 +355,7 @@ exports.getLoginUserPost = async (req, res) => {
 
 exports.toggleCommentsOnPost = async (req, res) => {
     try {
-        const postId = req.query.id || req.body.id;
+        const postId = req.query.postId || req.body.postId;
         if(! postId) return res.status(403).json({success:false, message : "Please provide postId"})
 
         const post = await postModel.findById(postId);
@@ -372,7 +374,7 @@ exports.toggleCommentsOnPost = async (req, res) => {
 exports.toggleLikesOnPost = async (req, res) => {
     try {
 
-        const postId = req.query.id || req.body.id;
+        const postId = req.query.postId || req.body.postId || req.params.postId;
         if(! postId) return res.status(403).json({success:false, message : "Please provide postId"})
 
         const post = await postModel.findById(postId);
@@ -395,7 +397,7 @@ exports.togglePinnedOnPost = async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        const postId = req.query.id || req.body.id;
+        const postId = req.query.postId || req.body.postId || req.query.postId;
         if (!postId) {
             return res.status(400).json({ success: false, message: "Post ID is required." });
         }
@@ -434,7 +436,8 @@ exports.togglePinnedOnPost = async (req, res) => {
 
 exports.getEditPost = async (req, res) => {
     try {
-        const post = await postModel.findById(req.params.id || req.query.id).populate("user")
+        const post = await postModel.findById(req.params.postId || req.query.postId).populate("user")
+        
         if (!post) return res.status(403).json({ message: "Post not found" })
 
         const loginuser = await userModel.findOne({ email: req.user.email })
@@ -463,14 +466,14 @@ exports.getEditPost = async (req, res) => {
 
 exports.editPost = async (req, res) => {
     try {
-        const { caption, id } = req.body;
+        const { caption, postId} = req.body;
         if (!caption || caption.trim() === "") {
             return res.status(400).json({ success:false, message: 'Caption cannot be empty' });
         }
-        const postid = req.query.id || id;
+        const postid =  postId;
         if(! postid) return res.status(403).json({success:false, message : "please provide post id for edit the post"})
 
-        const post = await postModel.findOneAndUpdate({ _id: req.params.id }, { $set: { caption } }, { new: true });
+        const post = await postModel.findOneAndUpdate({ _id: postid }, { $set: { caption } }, { new: true });
         if (!post) {
             return res.status(404).json({ error: 'Post not found' });
         }
@@ -483,7 +486,7 @@ exports.editPost = async (req, res) => {
 
 exports.deletePost = async (req, res) => {
     try {
-        const postid = req.query.id || req.body.id;
+        const postid = req.query.postId || req.params.postId;
         if(! postid) return res.status(403).json({success:false, message : "please provide post id for delete the post"})
 
         const post = await postModel.findByIdAndDelete(postid)

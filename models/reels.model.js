@@ -60,4 +60,4 @@ const reelsSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-module.exports = mongoose.model("Reels", reelsSchema);
+module.exports = mongoose.model("reels", reelsSchema);

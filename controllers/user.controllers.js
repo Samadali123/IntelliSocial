@@ -21,32 +21,27 @@ exports.homePage = async (req, res) => {
 exports.SignUp = async (req, res, next) => {
     try {
         const { username, fullname, email, password } = req.body;
-        if(! username ||  !email  || ! fullname || ! password) return res.status(403).json({success:false, message: "Please provide details"})
+        if (!username || !fullname || !email || !password) {
+            return res.status(400).json({ success: false, message: "Please provide all required details" });
+        }
 
-        if (!username) return res.status(403).json({ success: false, message: "Please provide username" })
-        if (!fullname) return res.status(403).json({ success: false, message: "Please provide fullname" })
-        if (!email) return res.status(403).json({ success: false, message: "Please provide email" })
-        if (!password) return res.status(403).json({ success: false, message: "Please provide password" })
         const user = await userModel.findOne({ email });
-
         if (user) {
-            return res.status(409).json({ success: false, message: "User is already registered.." })
+            return res.status(409).json({ success: false, message: "User is already registered." });
         }
 
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        var newUser = await userModel.create({
+        const newUser = await userModel.create({
             username,
             fullname,
             email,
             password: hashedPassword
-        })
+        });
         sendToken(newUser, res);
-        // res.status(200).json({ success: true, newUser });
-        return res.status(200).json({success:true, newUser})
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message })
+        return res.status(500).json({ success: false, message: error.message });
     }
 }
 

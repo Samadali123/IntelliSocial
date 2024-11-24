@@ -8,18 +8,18 @@ const commentSchema = new mongoose.Schema(
     },
     user: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: 'user',
       required: [true, 'User is required']
     },
     post: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Post',
+      ref: 'post',
       required: [true, 'Post is required']
     },
     likes: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
+        ref: 'user'
       }
     ],
     createdAt: {
@@ -38,4 +38,4 @@ const commentSchema = new mongoose.Schema(
 );
 
 
-module.exports = mongoose.model('Comment', commentSchema);
+module.exports = mongoose.model('comment', commentSchema);
