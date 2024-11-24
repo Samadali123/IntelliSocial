@@ -49,7 +49,7 @@ exports.getFeeds = async(req, res, next) => {
         });
 
         // Respond with JSON data instead of rendering a page
-        res.json({  loginuser, allposts, userStories, dater: utils.formatRelativeTime });
+        res.status(200).json({ success:true, loginuser, allposts, userStories, dater: utils.formatRelativeTime });
     } catch (error) {
         res.status(500).json({success:false, message : error.message})
     }
@@ -69,6 +69,8 @@ exports.searchUsers = async(req, res, next) => {
         }
         // Get the input parameter and create a regex for case-insensitive search
         const input = req.params.input || req.query.input;
+        if(! input) return res.status(403).json({success:false, message: "Please Provide Input for Search the Users"})
+
         const regex = new RegExp(`^${input}`, 'i');
 
         // Find users matching the regex and exclude those in the blockedUsers array
@@ -76,6 +78,8 @@ exports.searchUsers = async(req, res, next) => {
             username: regex,
             _id: { $nin: loginuser.blockedUsers } // Exclude users that are in the blockedUsers array
         });
+        if(users.length == 0) return res.status(404).json({success:false, message : "Not have any users you searched for."})
+
         res.status(200).json({success:true, users})
 
     } catch (error) {
@@ -91,13 +95,16 @@ exports.getOpenuserProfile = async (req, res, next) => {
             return res.status(404).json({ success: false, message: "Logged-in user not found." });
         }
 
-        const openuser = await userModel.findOne({ username: req.params.username || req.query.username }).populate(`posts`);
+        const userId = req.params.userId || req.query.userId;
+        if(!userId) return res.status(403).json({success:false, message : "Please provide UserId for openProfile User"})
+
+        const openuser = await userModel.findOne({ _id: userId }).populate(`posts`);
         if (!openuser) {
             return res.status(404).json({ success: false, message: "Open user not found." });
         }
 
         // Respond with JSON data instead of rendering a page
-        res.status(200).json({ loginuser, openuser });
+        res.status(200).json({ success:true, loginuser, openuser });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

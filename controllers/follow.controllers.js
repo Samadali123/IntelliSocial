@@ -2,7 +2,14 @@ const userModel = require("../models/user.model")
 
 exports.followAndUnfollow = async (req, res) => {
     try {
-        const followedUser = await userModel.findOne({ username: req.params.followeruser || req.query.followeruser });
+        const followerUserId = req.params.followeruserId || req.query.followeruserId;
+
+        // Check if followerUserId is provided
+        if (!followerUserId) {
+            return res.status(400).json({ success: false, message: "Follower user ID is required." });
+        }
+
+        const followedUser = await userModel.findOne({ _id: followerUserId });
         const followingUser = await userModel.findOne({ email: req.user.email });
 
         if (!followedUser) {
@@ -40,61 +47,108 @@ exports.followAndUnfollow = async (req, res) => {
 
 exports.getFollowers = async (req, res) => {
     try {
-        const loginuser = await userModel.findOne({ email: req.user.email })
+        // Check if user is authenticated
+        if (!req.user || !req.user.email) {
+            return res.status(401).json({ success: false, message: "User not authenticated." });
+        }
+
+        const loginuser = await userModel.findOne({ email: req.user.email });
         if (!loginuser) {
-            return res.status(404).json({ success: false, message: "login User not found" });
+            return res.status(404).json({ success: false, message: "Login User not found" });
         }
-        const openprofileuser = await userModel.findOne({ _id: req.params.userId || req.query.userId }).populate(`followers`).populate(`following`)
+
+        const userId = req.params.userId || req.query.userId;
+        // Check if userId is provided
+        if (!userId) {
+            return res.status(400).json({ success: false, message: "User ID is required." });
+        }
+
+        const openprofileuser = await userModel.findOne({ _id: userId }).populate('followers').populate('following');
         if (!openprofileuser) {
-            return res.status(404).json({ success: false, message: "openprofile User not found" });
+            return res.status(404).json({ success: false, message: "Open profile User not found" });
         }
+
         res.status(200).json({ openprofileuser, loginuser });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message })
+        res.status(500).json({ success: false, message: error.message });
     }
 }
 
 
 exports.getFollowings = async (req, res) => {
     try {
-        const loginuser = await userModel.findOne({ email: req.user.email })
+        // Check if user is authenticated
+        if (!req.user || !req.user.email) {
+            return res.status(401).json({ success: false, message: "User not authenticated." });
+        }
+
+        const loginuser = await userModel.findOne({ email: req.user.email });
         if (!loginuser) {
-            return res.status(404).json({ success: false, message: "login User not found" });
+            return res.status(404).json({ success: false, message: "Login User not found." });
         }
-        const openprofileuser = await userModel.findOne({ _id: req.params.userId }).populate(`followers`).populate(`following`)
+
+        const userId = req.params.userId;
+        // Check if userId is provided
+        if (!userId) {
+            return res.status(400).json({ success: false, message: "User ID is required." });
+        }
+
+        const openprofileuser = await userModel.findOne({ _id: userId }).populate('followers').populate('following');
         if (!openprofileuser) {
-            return res.status(404).json({ success: false, message: "openprofile User not found" });
+            return res.status(404).json({ success: false, message: "Open profile User not found." });
         }
+
         res.status(200).json({ openprofileuser, loginuser });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message })
+        res.status(500).json({ success: false, message: error.message });
     }
 }
 
 
 exports.getLoginuserFollowers = async (req, res) => {
     try {
-        const loginuser = await userModel.findOne({ email: req.user.email }).populate("followers").populate("following")
-        if (!loginuser) {
-            return res.status(404).json({ success: false, message: "login User not found" });
+        // Check if user is authenticated
+        if (!req.user || !req.user.email) {
+            return res.status(401).json({ success: false, message: "User not authenticated." });
         }
 
-        res.status(200).json({loginuser, followers:loginuser.followers });
+        const loginuser = await userModel.findOne({ email: req.user.email }).populate("followers").populate("following");
+        if (!loginuser) {
+            return res.status(404).json({ success: false, message: "Login User not found." });
+        }
 
+        // Check if followers exist
+        if (!loginuser.followers || loginuser.followers.length === 0) {
+            return res.status(200).json({ success: true, message: "No followers found.", loginuser });
+        }
+
+        res.status(200).json({ success: true, loginuser, followers: loginuser.followers });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message })
+        res.status(500).json({ success: false, message: error.message });
     }
 }
 
+
 exports.getLoginuserFollowings = async (req, res) => {
     try {
+        // Check if user is authenticated
+        if (!req.user || !req.user.email) {
+            return res.status(401).json({ success: false, message: "User not authenticated." });
+        }
+
         const loginuser = await userModel.findOne({ email: req.user.email }).populate("followers").populate("following");
         if (!loginuser) {
-            return res.status(404).json({ success: false, message: "login User not found" });
+            return res.status(404).json({ success: false, message: "Login User not found." });
         }
-        res.status(200).json({loginuser, followings:loginuser.followings});
+
+        // Check if followings exist
+        if (!loginuser.following || loginuser.following.length === 0) {
+            return res.status(200).json({ success: true, message: "No followings found.", loginuser });
+        }
+
+        res.status(200).json({ success: true, loginuser, followings: loginuser.following });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message })
+        res.status(500).json({ success: false, message: error.message });
     }
 }
 
@@ -109,6 +163,11 @@ exports.removeLoginuserFollower = async (req, res) => {
             return res.status(400).json({ success: false, message: "User ID is required." });
         }
 
+        // Check if the user is authenticated
+        if (!req.user || !req.user.email) {
+            return res.status(401).json({ success: false, message: "User not authenticated." });
+        }
+
         const followerToDelete = await userModel.findById(userId).populate("following");
         if (!followerToDelete) {
             return res.status(404).json({ success: false, message: "Follower not found." });
@@ -117,6 +176,11 @@ exports.removeLoginuserFollower = async (req, res) => {
         const loginUser = await userModel.findOne({ email: req.user.email }).populate("followers");
         if (!loginUser) {
             return res.status(404).json({ success: false, message: "Logged-in user not found." });
+        }
+
+        // Check if the follower is actually in the login user's followers
+        if (!loginUser.followers.includes(followerToDelete._id)) {
+            return res.status(400).json({ success: false, message: "Follower is not in your followers list." });
         }
 
         // Remove follower from login user's followers
@@ -144,7 +208,7 @@ exports.removeLoginuserFollower = async (req, res) => {
 
 exports.searchUserFollowers = async (req, res) => {
     try {
-        const openUser = req.params.openuser || req.query.openuser;
+        const openUser = req.params.openuserId || req.query.openuserId;
         const input = req.params.input || req.query.input;
 
         // Check if openUser and input are provided
@@ -152,24 +216,35 @@ exports.searchUserFollowers = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Open user and input are required.' });
         }
 
+        // Check if openUser is a valid MongoDB ObjectId
+        if (!mongoose.Types.ObjectId.isValid(openUser)) {
+            return res.status(400).json({ success: false, message: 'Invalid user ID format.' });
+        }
+
         const regex = new RegExp(`^${input}`, 'i');
-        const user = await userModel.findOne({ username: openUser }).populate('followers');
+        const user = await userModel.findOne({ _id: openUser }).populate('followers');
 
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Check if the user has followers
+        if (!user.followers || user.followers.length === 0) {
+            return res.status(200).json({ success: true, followers: [] });
         }
 
         const followers = user.followers.filter(follower => regex.test(follower.username));
         res.status(200).json({ success: true, followers });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message});
+        res.status(500).json({ success: false, message: error.message });
     }
 }
 
 
+
 exports.searchUserFollowings = async (req, res) => {
     try {
-        const openUser = req.params.openuser || req.query.openuser;
+        const openUser = req.params.openuserId || req.query.openuserId;
         const input = req.params.input || req.query.input;
 
         // Check if openUser and input are provided
@@ -177,11 +252,21 @@ exports.searchUserFollowings = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Open user and input are required.' });
         }
 
+        // Check if openUser is a valid MongoDB ObjectId
+        if (!mongoose.Types.ObjectId.isValid(openUser)) {
+            return res.status(400).json({ success: false, message: 'Invalid user ID format.' });
+        }
+
         const regex = new RegExp(`^${input}`, 'i');
-        const user = await userModel.findOne({ username: openUser }).populate('following');
+        const user = await userModel.findOne({ _id: openUser }).populate('following');
 
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Check if the user has following
+        if (!user.following || user.following.length === 0) {
+            return res.status(200).json({ success: true, following: [] });
         }
 
         const following = user.following.filter(followingUser => regex.test(followingUser.username));

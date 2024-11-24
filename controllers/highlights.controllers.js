@@ -25,18 +25,17 @@ exports.getStoriesIdsForHighlights = async (req, res, next) => {
 
             if (stories.length > 0) {
                 const cover = stories[0].image; // Assuming each story has an 'image' field
-                res.status(200).json({ loginuser, cover, ids: idsArray });
+                res.status(200).json({ success:true, loginuser, cover, ids: idsArray });
             } else {
-                res.status(404).json({ error: "No stories found for the user" });
+                res.status(404).json({ success:false, error: "No stories found for the user" });
             }
         } else {
-            res.status(400).json({ error: "No IDs provided" });
+            res.status(400).json({ success:false, error: "No IDs provided" });
         }
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({  success:false, message: error.message });
     }
 }
-
 
 
 exports.addHighlights = async (req, res) => {
@@ -108,7 +107,7 @@ exports.addHighlights = async (req, res) => {
 
 exports.getHighlights = async (req, res) => {
     try {
-        const userId = req.query.userid || req.params.userid;
+        const userId = req.query.userId || req.params.userId;
         if(! userId) return res.status(403).json({success:false, message : "please provide userId for get highligjts"})
 
         const user = await userModel.findById(userId);

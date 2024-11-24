@@ -36,12 +36,15 @@ exports.getOpenUserPosts = async (req, res, next) => {
             return res.status(404).json({ success: false, message: "Logged-in user not found!" });
         }
 
+        if(! req.params.openuserId || ! req.query.openuserId) return res.status(404).json({success:false, message : "Please provide open user Id"})
         const openUser = await userModel.findById(req.params.openuserid || req.query.openuserid).populate("followers").populate("following");
         if (!openUser) {
             return res.status(404).json({ success: false, message: "Open user not found!" });
         }
+       
+        if(! req.query.openpostId || !req.params.openpostId) return res.status(404).json({success:false, message : "Pleaee provide PostId"})
 
-        const openPost = await postModel.findById(req.params.openpost).populate("user");
+        const openPost = await postModel.findById(req.params.openpostId).populate("user");
         if (!openPost) {
             return res.status(403).json({ success: false, message: "Post not found!" });
         }
@@ -67,7 +70,7 @@ exports.getOpenUserPosts = async (req, res, next) => {
 exports.getArchieveStory = async (req, res) => {
     try {
         const loginuser = await userModel.findOne({ email: req.user.email });
-        const storyId = req.query.id || req.params.id;
+        const storyId = req.query.storyId || req.params.storyId;
         if(! storyId)  return res.status(403).json({success:false, message: "please provide stoyrid"})
         const story = await storyModel.findById(storyId).populate("user");
         if(! story) return res.status(403).json({success:false, message: "Story not found!!!"})
@@ -102,7 +105,7 @@ exports.getLoginuserCommentsOnPosts = async (req, res, next) => {
         if (!loginuser) {
             return res.status(404).json({ message: "User not found" });
         }
-
+       
         // Find all comments made by the logged-in user and populate the post field
         const userComments = await commentModel.find({ user: loginuser._id })
             .populate({
@@ -139,7 +142,7 @@ exports.getLoginuserCommentsOnPosts = async (req, res, next) => {
                 comment.post.formattedCreatedAt = getRelativeTime(comment.post.createdAt);
             }
         });
-        res.status(200).json({ userComments, loginuser });
+        res.status(200).json({ success:true, userComments, loginuser });
        
     } catch (error) {
         res.status(500).json({success:false, message:error.message });
@@ -150,7 +153,7 @@ exports.getLoginuserCommentsOnPosts = async (req, res, next) => {
 
 exports.getpostCommentsonPost= async (req, res) => {
     try {
-        const postId = req.query.id || req.params.id;
+        const postId = req.query.postId || req.params.postId;
         if(!postId) return res.status(403).json({success:false, message: "please provide postid"})
         const post = await postModel.findById(postId);
        if(! post) return   res.status(403).json({success:false, message: "post not found!! "})
@@ -173,7 +176,7 @@ exports.getpostCommentsonPost= async (req, res) => {
         });
         const loginuser = await userModel.findOne({ email: req.user.email });
         if(! loginuser) return res.status(403).json({success:false, message : "login user not found"})
-        res.status(200).json({ loginuser, comments, post });
+        res.status(200).json({ success:true, loginuser, comments, post });
     } catch (error) {
         res.status(500).json({success:false, message:error.mesage})
     }
@@ -189,12 +192,16 @@ exports.getOpenuserLikedonPost = async (req, res, next) => {
             return res.status(404).json({ success: false, message: "User not found!" });
         }
 
-        const openUser = await userModel.findById(req.params.userid).populate("followers").populate("following");
+        if(! req.query.userId || ! req.params.userId) return res.status(404).json({success:false, message : "Please provide UserId"})
+
+        const openUser = await userModel.findById(req.params.userId).populate("followers").populate("following");
         if (!openUser) {
             return res.status(404).json({ success: false, message: "Open user not found!" });
         }
 
-        const openPost = await postModel.findById(req.params.postid || req.query.postid).populate("user");
+        
+        if(! req.query.postId || ! req.params.postId) return res.status(404).json({success:false, message : "Please provide UserId"})
+        const openPost = await postModel.findById(req.params.postId || req.query.postId).populate("user");
         if (!openPost) {
             return res.status(404).json({ success: false, message: "Post not found!" });
         }
@@ -242,6 +249,8 @@ exports.getSinglePost = async (req, res, next) => {
             return res.status(404).json({ success: false, message: "User not found!" });
         }
 
+        if(! req.query.postId || ! req.params.postId) return res.status(404).json({success:false, message: "Please provide PostId "})
+
         const openPost = await postModel.findById(req.params.postid || req.query.postid).populate("user");
         if (!openPost) {
             return res.status(404).json({ success: false, message: "Post not found!" });
@@ -271,11 +280,12 @@ exports.getLoginuserHighlights = async (req, res, next) => {
             return res.status(204).json({ success: true, message: "No highlights available." });
         }
 
-        res.status(200).json({ loginuser , highlights: loginuser.highlights });
+        res.status(200).json({ success:true, loginuser , highlights: loginuser.highlights });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 }
+
 
 
 exports.getSingleHighlight = async (req, res) => {
@@ -286,7 +296,9 @@ exports.getSingleHighlight = async (req, res) => {
         }
 
         // Fetch the highlight
-        const highlight = await HighlightModel.findById(req.params.highlightId);
+        if(! req.query.highlightId || ! req.params.highlightId) return res.status(404).json({success:false, message: "Please provide HighlightUd"})
+
+        const highlight = await HighlightModel.findById(req.query.highlightId || req.params.highlightId);
         if (!highlight) {
             return res.status(404).json({ success: false, message: "Highlight not found!" });
         }
@@ -308,23 +320,6 @@ exports.getSingleHighlight = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 }
-
-
-
-exports.getLoginuserHighlights = async (req, res,) => {
-    try {
-        const loginuser = await userModel.findOne({ email: req.user.email }).populate("highlights");
-        if(! loginuser) return res.status(403).json({success:false, message: "Login User not Found!  "})
-        res.status(200).json({ success: true, loginuser });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-}
-
-
-
-
-
 
 
 
@@ -386,7 +381,6 @@ exports.removeLoginuserContent = async (req, res) => {
         return res.status(500).json({ success: false, message: error.message });
     }
 }
-
 
 
 

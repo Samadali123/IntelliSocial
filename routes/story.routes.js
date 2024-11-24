@@ -6,20 +6,20 @@ const { addStory, likeStory, deleteStory, getStories, getSingleStory } = require
 
 
 
-// /stories/:username/add/story
-router.post(`/:username/add/story`, [authentication,upload.single(`storyimage`)],  addStory )
+// /stories/add/story
+router.post(`/add/story`, [authentication,upload.single(`storyimage`)],  addStory )
 
-//  /stories/:userID
-router.get("/getstories/:userID", authentication,  getStories)
+//  /stories
+router.get("/getstories", authentication,  getStories)
 
-//  /stories/:storyId
-router.get("/getstories/:storyId", authentication,  getSingleStory)
+//  /stories
+router.get("/getstories", authentication,  getSingleStory)
 
-// /stories/story/:like/:storyId
-router.put("/story/like/:StoryId", authentication,  likeStory);
+// /stories/story/like
+router.put("/story/like", authentication,  likeStory);
 
-// /stories/story/delete/:storyId
-router.delete("/story/delete/:StoryId", authentication,deleteStory);
+// /stories/story/delete
+router.delete("/story/delete", authentication,deleteStory);
 
 
 

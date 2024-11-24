@@ -75,7 +75,6 @@ app.use("/notes", notesRoutes);
 // Follow routes
 app.use("/follows", followRoutes);
 
-
 // Story routes
 app.use("/stories", storyRoutes);
 

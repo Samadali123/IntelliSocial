@@ -7,12 +7,11 @@ const {  searchUsers,getFeeds, getOpenuserProfile } = require('../controllers/fe
 // /feed/home
 router.get("/home", authentication,  getFeeds)
 
+// /feed/users
+router.get("/users", authentication, searchUsers)
 
-// /feed/users/:input
-router.get("/users/:input", authentication, searchUsers)
-
-// /feed/openprofile/:username
-router.get("/openprofile/:username", authentication, getOpenuserProfile)
+// /feed/openprofile
+router.get("/openprofile", authentication, getOpenuserProfile)
 
 
 

@@ -28,9 +28,11 @@ exports.addStory = async (req, res) => {
 exports.getStories = async (req, res) => {
     try {
         const storyuser = await userModel.findOne({ email: req.user.email }).populate(`stories`)
-        const loginuserId = req.params.userID || req.query.userID;
+        const loginuserId = req.params.userId || req.query.userId;
         if(loginuserId) return res.status(403).json({success: false, message: "please provide user id"})
-        const loginuser = await userModel.findById(loginuserId).exec();    
+        const loginuser = await userModel.findById(loginuserId).exec(); 
+        if(! loginuser) return res.status(404).json({success:false, message: "Login user not found"})   
+            
         if (logiuser.stories.length > 0) {
             res.status(200).json({ success: true, stories: loginuser.stories,storyuser})
         } else {
@@ -58,7 +60,7 @@ exports.getSingleStory = async(req, res)=>{
 
 exports.likeStory = async (req, res, next) => {
     try {
-        const storyId = req.params.StoryId || req.query.StoryId;
+        const storyId = req.params.storyId || req.query.storyId;
         // Validate if storyId is a valid ObjectId
         if (!mongoose.Types.ObjectId.isValid(storyId)) {
             return res.status(400).json({ error: "Invalid StoryId" });
@@ -98,7 +100,7 @@ exports.likeStory = async (req, res, next) => {
 
 exports.deleteStory = async (req, res, next) => {
     try {
-        const storyId = req.params.StoryId || req.query.StoryId;
+        const storyId = req.params.storyId || req.query.storyId;
         // Validate if storyId is a valid ObjectId
         if (!mongoose.Types.ObjectId.isValid(storyId)) {
             return res.status(400).json({ error: "Invalid StoryId" });
@@ -115,7 +117,7 @@ exports.deleteStory = async (req, res, next) => {
         }
 
         await storyModel.findByIdAndDelete(storyId);
-        res.json({ message: "Story successfully deleted", story: storyToDelete });
+        res.status(200).json({ success:true,message: "Story successfully deleted", story: storyToDelete });
 
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });

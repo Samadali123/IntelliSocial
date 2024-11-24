@@ -16,8 +16,8 @@ router.get("/add/highlights/cover/:Ids", authentication,  getStoriesIdsForHighli
 router.post("/upload/highlight", authentication,  addHighlights);
 
 
-///highlights
-router.get("/gethighlights/:userid", authentication, getHighlights );
+///highlights/gethighlights
+router.get("/gethighlights", authentication, getHighlights );
 
 
 
