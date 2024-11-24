@@ -298,7 +298,8 @@ exports.getSingleHighlight = async (req, res) => {
         // Fetch the highlight
         if(! req.query.highlightId || ! req.params.highlightId) return res.status(404).json({success:false, message: "Please provide HighlightUd"})
 
-        const highlight = await HighlightModel.findById(req.query.highlightId || req.params.highlightId);
+        const highlight = await HighlightModel.findById(req.query.highlightId || req.params.highlightId).populate("user")
+        
         if (!highlight) {
             return res.status(404).json({ success: false, message: "Highlight not found!" });
         }
@@ -309,9 +310,8 @@ exports.getSingleHighlight = async (req, res) => {
 
             return res.status(200).json({
                 success: true,
-                highlightimage,
+                highlight,
                 loginuser,
-                number: req.params.number,
             });
         } else {
             return res.status(204).json({ success: false, message: "No further stories available." });
@@ -371,11 +371,11 @@ exports.removeLoginuserContent = async (req, res) => {
 
         if (!result.success) {
             // Send a message if no content was found
-            return res.status(200).json(result);
+            return res.status(200).json({success:true, result});
         }
 
         // Return success response if content was successfully removed
-        return res.status(200).json(result);
+        return res.status(200).json({success:true, result});
     } catch (error) {
         // Handle errors
         return res.status(500).json({ success: false, message: error.message });
@@ -395,13 +395,11 @@ exports.getAboutofLoginuser = async (req, res) => {
             loginuser.formattedDate = dateFormatter.format(new Date(loginuser.Date));
         }
 
-        res.status(200).json({ footer: true, loginuser });
+        res.status(200).json({ success:true, loginuser });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 }
-
-
 
 
 
@@ -425,7 +423,7 @@ exports.loginuserAccountToggle = async (req, res) => {
 
 
 
-exports.resetPasswordofLoginuser = async (req, res, next) => {
+exports.resetPasswordofLoginuser = async (req, res) => {
     const { currentPassword, newPassword, confirmPassword } = req.body;
     const loginuser = await userModel.findOne({ email: req.user.email }); // Assuming user ID is attached to req.user
 
@@ -459,7 +457,6 @@ exports.resetPasswordofLoginuser = async (req, res, next) => {
        res.status(500).json({success:false, message:error.mesage})
     };
 }
-
 
 
 
@@ -514,7 +511,6 @@ exports.blockUser = async (req, res, ) => {
 }
 
 
-
 exports.getBlockedAccounts = async (req, res) => {
     try {
         const loginuser = await userModel.findOne({ email: req.user.email }).populate("blockedUsers");
@@ -533,22 +529,22 @@ exports.unblockUser = async (req, res) => {
             return res.status(403).json({ success: false, message: "Login user not found! Please login to continue." });
         }
 
-        const userToUnblockId = req.body.id;
+        const userToUnblockId = req.body.userId;
 
         // Ensure the user is not trying to unblock themselves
         if (loginuser._id.toString() === userToUnblockId.toString()) {
-            return res.status(400).json({ message: "You cannot unblock yourself." });
+            return res.status(400).json({ success:false, message: "You cannot unblock yourself." });
         }
 
         // Find the user to unblock by their ID
         const userToUnblock = await userModel.findById(userToUnblockId);
         if (!userToUnblock) {
-            return res.status(404).json({ message: 'User to unblock not found.' });
+            return res.status(404).json({ success:false, message: 'User to unblock not found.' });
         }
 
         // Check if the user is actually blocked
         if (!loginuser.blockedUsers.includes(userToUnblockId)) {
-            return res.status(400).json({ message: "This account is not in your blocked list." });
+            return res.status(400).json({ success:false,message: "This account is not in your blocked list." });
         }
 
         // Remove userToUnblockId from loginuser's blockedUsers array
@@ -564,7 +560,7 @@ exports.unblockUser = async (req, res) => {
         res.status(200).json({ success: true, message: 'User successfully unblocked.' });
 
     } catch (error) {
-        res.status(500).json({ message: error.mesage});
+        res.status(500).json({ success:false, message: error.mesage});
 
     }
 }

@@ -1,6 +1,7 @@
 const userModel = require("../models/user.model")
+const mongoose = require("mongoose");
 
-exports.followAndUnfollow = async (req, res) => {
+exports.FollowAndUnfollow = async (req, res) => {
     try {
         const followerUserId = req.params.followeruserId || req.query.followeruserId;
 
@@ -87,7 +88,7 @@ exports.getFollowings = async (req, res) => {
             return res.status(404).json({ success: false, message: "Login User not found." });
         }
 
-        const userId = req.params.userId;
+        const userId = req.params.userId || req.query.userId;
         // Check if userId is provided
         if (!userId) {
             return res.status(400).json({ success: false, message: "User ID is required." });
@@ -156,7 +157,7 @@ exports.getLoginuserFollowings = async (req, res) => {
 
 exports.removeLoginuserFollower = async (req, res) => {
     try {
-        const { userId } = req.body;
+        const { userId } = req.body || req.query.userId;
 
         // Check if userId is provided
         if (!userId) {

@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const {authentication} = require("../middlewares/auth.middleware");
-const {  followAndUnfollow,  removeLoginuserFollower, searchUserFollowers, searchUserFollowings, getFollowers, getFollowings, getLoginuserFollowers, getLoginuserFollowings } = require('../controllers/follow.controllers');
+const {  FollowAndUnfollow,removeLoginuserFollower, searchUserFollowers, searchUserFollowings, getFollowers, getFollowings, getLoginuserFollowers, getLoginuserFollowings } = require('../controllers/follow.controllers');
 
 // /follows/follow
-router.put(`/follow`, authentication, followAndUnfollow)
+router.put(`/follow`, authentication, FollowAndUnfollow )
 
 // /follows/followers
 router.get('/followers', authentication, getFollowers);
@@ -21,11 +21,11 @@ router.get('/myfollowing', authentication, getLoginuserFollowings);
 // /follows/myfollowers/remove
 router.delete("/myfollowers/remove", authentication, removeLoginuserFollower)
 
-// /follows/search/:openuser/followers
-router.get(`/search/:openuser/followers`, authentication, searchUserFollowers);
+// /follows/search/followers
+router.get(`/search/followers`, authentication, searchUserFollowers);
 
-// /follows/search/:openuser/following
-router.get(`/search/:openuser/following`, authentication, searchUserFollowings);
+// /follows/search/following
+router.get(`/search/following`, authentication, searchUserFollowings);
 
 
 
