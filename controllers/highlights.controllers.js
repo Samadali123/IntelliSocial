@@ -1,108 +1,146 @@
 const userModel = require("../models/user.model")
 const HighlightModel = require("../models/highlights.model")
+const storyModel = require("../models/story.model")
+const mongoose = require("mongoose")
 
 
 
-exports.getStoriesForHighlights = async (req, res, next) => {
+exports.getStoriesForHighlights = async (req, res) => {
     try {
         const loginuser = await userModel.findOne({ email: req.user.email }).populate("myStories");
+        if(loginuser.myStories.length == 0) return res.status(404).json({success:false, message: "No Stroies Available"})
         if(! loginuser) return res.status(403).json({success:false, message : "user not found"})
-        res.status(200).json({ loginuser , stories: loginuser.stories});
+        res.status(200).json({ loginuser , stories: loginuser.myStories});
     } catch (error) {
         res.status(500).json({ success:false, message : error.message});
     }
 }
 
-exports.getStoriesIdsForHighlights = async (req, res, next) => {
+
+
+exports.addHighlightsCover = async (req, res, next) => {
     try {
+        // Fetch the logged-in user based on the request's user email
         const loginuser = await userModel.findOne({ email: req.user.email });
-        if(! loginuser) return res.status(403).json({success:false, message : "user not found"})
 
-        const idsArray = req.params.Ids.split(",");
-        if (idsArray.length > 0) {
-            // Assuming you have a Story model to find the stories by their IDs
-            const stories = await storyModel.find({ _id: { $in: idsArray } });
-
-            if (stories.length > 0) {
-                const cover = stories[0].image; // Assuming each story has an 'image' field
-                res.status(200).json({ success:true, loginuser, cover, ids: idsArray });
-            } else {
-                res.status(404).json({ success:false, error: "No stories found for the user" });
-            }
-        } else {
-            res.status(400).json({ success:false, error: "No IDs provided" });
+        if (!loginuser) {
+            return res.status(404).json({ error: "User not found" });
         }
+
+        // Extract IDs from req.body
+        const idsArray = req.body.Ids;
+        if (!idsArray || !Array.isArray(idsArray) || idsArray.length === 0) {
+            return res.status(400).json({ error: "No valid IDs provided in the request" });
+        }
+
+        // Fetch stories based on the provided IDs
+        const stories = await storyModel.find({ _id: { $in: idsArray } });
+
+        if (stories.length === 0) {
+            return res.status(404).json({ error: "No stories found for the provided IDs" });
+        }
+
+        // Prepare the response data
+        const cover = stories[0].image; // Assuming each story has an 'image' field
+        const responseData = {
+            loginUser: {
+                id: loginuser._id,
+                email: loginuser.email,
+                name: loginuser.name, // Add other relevant fields
+            },
+            cover,
+            storyIds: idsArray,
+            stories: stories.map((story) => ({
+                id: story._id,
+                image: story.image, // Assuming each story has an 'image' field
+            })),
+        };
+
+        // Respond with the prepared data in JSON format
+        return res.status(200).json(responseData);
+
     } catch (error) {
-        res.status(500).json({  success:false, message: error.message });
+        console.error("Error in addHighlightsCover:", error.message);
+        return res.status(500).json({ error: "Internal Server Error", details: error.message });
     }
-}
+};
 
 
-exports.addHighlights = async (req, res) => {
+
+
+
+exports.uploadHighlight = async (req, res) => {
     try {
-        // Verify user authentication
-        const loggedInUser = await userModel.findOne({ email: req.user.email });
-        if (!loggedInUser) {
-            return res.status(403).json({ success: false, message: "User not found" });
+        // Ensure the user is authenticated
+        const loginuser = await userModel.findOne({ email: req.user.email });
+        if (!loginuser) {
+            return res.status(404).json({ success: false, message: "User not found" });
         }
 
-        // Destructure ids and title from the request body
+        // Extract ids and title from request body
         let { ids, title } = req.body;
-        if (!ids || !title) {
-            return res.status(400).json({ success: false, message: "Please provide both ids and title to create highlights." });
-        }
+        ids = JSON.parse(ids);
 
-        title = title.trim() || "Untitled";
+        if (!title) return res.status(400).json({ success: false, message: "Please provide title for highlight" });
+        if (!ids) return res.status(400).json({ success: false, message: "Please provide ids for highlight" });
 
-        // Validate that ids is an array
+        if (!ids && !title) return res.status(400).json({ success: false, message: "Please Provide Ids and Title for uploading the Highlight" });
+
+        title = title ? title.trim() : "Untitled";
+
+        // Validate ids
         if (!Array.isArray(ids)) {
-            return res.status(400).json({ success: false, error: "Invalid format for 'ids'. It should be an array." });
+            return res.status(400).json({ success: false, message: "Invalid Ids format It must be in an Array of Ids" });
         }
 
-        // Clean up the ids by trimming whitespace
-        ids = ids.map(id => id.trim());
+        // Trim any extra spaces from the IDs
+        ids = ids.map(id => id.trim()).filter(id => id); // Filter out any empty strings
 
-        // Fetch stories corresponding to the provided ids
-        const storiesPromises = ids.map(async (id) => {
+        // Fetch all stories for the ids
+        const stories = await Promise.all(ids.map(async (id) => {
             try {
                 const story = await storyModel.findById(id);
                 if (!story) {
-                    return res.status(404).json({ success: false, message: `Story not found for ID: ${id}` });
+                    console.warn(`Story not found for id: ${id}`);
+                    return null;
                 }
                 return story;
             } catch (err) {
-                console.error(`Error fetching story with ID ${id}:`, err);
+                console.error(`Error fetching story with id ${id}:`, err);
                 return null;
             }
-        });
+        }));
 
-        // Resolve all story fetch promises
-        const stories = await Promise.all(storiesPromises);
+        // Filter out any null values in case any stories were not found
+        const filteredStories = stories.filter(story => story !== null);
+        if (filteredStories.length === 0) {
+            return res.status(404).json({ success: false, message: "No valid stories found for the provided IDs." });
+        }
 
-        // Filter out any null values in case some stories were not found
-        const validStories = stories.filter(story => story !== null);
+        // Check if the file is present before accessing its path
+        if (!req.file || !req.file.path) {
+            return res.status(400).json({ success: false, message: "Please provide a cover image for the highlight" });
+        }
 
-        // Create a new highlight with the fetched stories
+        // Create new highlight with fetched stories and cover photo from req.file.path
         const newHighlight = await HighlightModel.create({
             title,
-            user: loggedInUser._id,
-            coverphoto: req.params.cover,
-            stories: validStories,
+            user: loginuser._id,
+            stories: filteredStories,
+            coverphoto: req.file.path // Use the cover photo URL from the uploaded file
         });
 
-        // Update the user's highlights
-        loggedInUser.highlights.push(newHighlight._id);
-        await newHighlight.populate("stories");
+        loginuser.highlights.push(newHighlight._id);
+        await newHighlight.populate("stories"); // Ensure stories are populated
         await newHighlight.save();
-        await loggedInUser.save();
-
+        await loginuser.save();
         req.flash("success", "Highlight created successfully.");
-        const message = req.flash("success");
-        res.status(201).json({ success: true, message, highlight: newHighlight });
+        res.status(201).json({ success: true, message: req.flash("success"), newHighlight });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        res.status(500).json({ success: false, message: "Internal Server Error", details: error.message });
     }
 }
+
 
 
 exports.getHighlights = async (req, res) => {

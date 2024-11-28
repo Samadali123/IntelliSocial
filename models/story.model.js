@@ -50,6 +50,14 @@ storySchema.post('findOneAndDelete', async function(doc) {
     }
 });
 
+// Automatically remove expired stories from the database
+storySchema.pre('save', function(next) {
+    if (this.isNew) {
+        this.expiryDate = new Date(Date.now() + 24 * 60 * 60 * 1000); // Set expiry date for new stories
+    }
+    next();
+});
+
 const Story = mongoose.model('story', storySchema);
 
 module.exports = Story;

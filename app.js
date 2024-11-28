@@ -84,11 +84,13 @@ app.use("/stories", storyRoutes);
 // Highlights routes
 app.use("/highlights", highlightsRoutes);
 
+// Settings routes
+app.use("/settings", settingsRoutes);
+
 // reels routes
 app.use("/reels", reelsRoutes)
 
-// Settings routes
-app.use("/settings", settingsRoutes);
+
 
 
 // Handle unknown routes seamlessly
