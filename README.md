@@ -23,7 +23,7 @@ Google Oath2
 
 
 Installation
-git clone https://github.com/your-username/IntelliSocial
+git clone https://github.com/Samadali123/IntelliSocial
 cd IntelliSocial
 npm install
 npm start
