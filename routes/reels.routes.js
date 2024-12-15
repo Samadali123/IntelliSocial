@@ -6,8 +6,7 @@ const router = express.Router();
 
 // Upload a reel with video and thumbnail
 // /reels/upload
-router.post(
-    "/upload",
+router.post("/upload",
     authentication,
     uploadVideo.fields([
         { name: "video", maxCount: 1 },

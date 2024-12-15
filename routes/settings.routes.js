@@ -10,7 +10,6 @@ router.get("/saved/posts", authentication,   getLoginUserSavedPosts)
 // /settings/saved/posts/open
 router.get("/saved/posts/open", authentication, getOpenUserPosts);
 
-
 // /settings/archieve/story
 router.get(`/archieve/story`, authentication,  getArchieveStory)
 
@@ -24,7 +23,7 @@ router.get("/user/comments", authentication, getLoginuserCommentsOnPosts);
 router.get('/user/posts/comments', authentication,  getpostCommentsonPost);
 
 
-// /settings/liked.posts
+// /settings/liked/posts
 router.get("/liked/posts", authentication,  getOpenuserLikedonPost)
 
 
@@ -45,21 +44,19 @@ router.get("/user/singlehighlight", authentication,  getSingleHighlight);
 
 
 // /settings/content/removed
-router.get('/content/removed', authentication , removeLoginuserContent);
+router.delete('/content/removed', authentication , removeLoginuserContent);
 
 
 // /settings/aboutus
 router.get("/aboutus", authentication,  getAboutofLoginuser);
 
 
-
 // /settings/account/toggle
-router.get("/account/toggle", authentication, loginuserAccountToggle);
+router.put("/account/toggle", authentication, loginuserAccountToggle);
 
 
 // /settings/resetpassword
 router.put("/resetpassword", authentication, resetPasswordofLoginuser)
-
 
 
 // /settings/block/user

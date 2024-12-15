@@ -4,9 +4,6 @@ const upload = require("../middlewares/images.middleware")
 const {authentication} = require("../middlewares/auth.middleware");
 const { uploadPost, likePost, savePost, addComment, viewPostComment,  likedPostUserSearch, likeComment, editPost, deletePost, getLikedPosts, getRandomUserPost, getLoginUserPost, toggleCommentsOnPost,togglePinnedOnPost, getEditPost, toggleLikesOnPost } = require('../controllers/post.controllers');
 
-
-
-
 // /posts/uploads/post
 router.post("/upload/post", [authentication, upload.array('image', 5),] ,uploadPost)
 

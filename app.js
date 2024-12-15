@@ -75,11 +75,11 @@ app.use("/notes", notesRoutes);
 // Follow routes
 app.use("/follows", followRoutes);
 
-// User feed routes
-app.use("/feed", userFeedRoutes);
-
 // Story routes
 app.use("/stories", storyRoutes);
+
+// User feed routes
+app.use("/feed", userFeedRoutes);
 
 // Highlights routes
 app.use("/highlights", highlightsRoutes);
@@ -89,8 +89,6 @@ app.use("/settings", settingsRoutes);
 
 // reels routes
 app.use("/reels", reelsRoutes)
-
-
 
 
 // Handle unknown routes seamlessly
