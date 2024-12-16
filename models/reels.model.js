@@ -24,17 +24,25 @@ const reelsSchema = new mongoose.Schema(
         videoUrl: {
             type: String,
             required: true,
-        },
-        thumbnailUrl: {
-            type: String,
-            required: true,
-        },
-        likes: [
-            {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: "user",
+            validate: {
+                validator: function (v) {
+                    return /\.(mp4|mp3)$/.test(v); // Validate video format
+                },
+                message: "Video format must be mp4 or mp3",
             },
-        ],
+        },
+        savedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "user"
+        },
+        likedby: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "user"
+        },
+        comments: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: `reelComment`
+        }],
         views: {
             type: Number,
             default: 0, // Initialize views to 0
@@ -60,4 +68,4 @@ const reelsSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-module.exports = mongoose.model("reels", reelsSchema);
+module.exports = mongoose.model("reel", reelsSchema);
