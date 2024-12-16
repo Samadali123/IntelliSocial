@@ -8,7 +8,6 @@ const bcrypt = require("bcrypt");
 
 
 
-
 exports.getLoginUserSavedPosts = async (req, res, next) => {
     try {
         const loginuser = await userModel.findOne({ email: req.user.email }).populate("savedPosts");
@@ -69,9 +68,6 @@ exports.getOpenUserPosts = async (req, res, next) => {
 }
 
 
-
-
-
 exports.getArchieveStory = async (req, res) => {
     try {
         const loginuser = await userModel.findOne({ email: req.user.email });
@@ -84,9 +80,6 @@ exports.getArchieveStory = async (req, res) => {
         res.status(500).json({success:false, nessage:error.message })
     }
 }
-
-
-
 
 
 exports.getLoginuserLikedPosts = async (req, res, next) => {
@@ -160,7 +153,6 @@ exports.getLoginuserCommentsOnPosts = async (req, res, next) => {
 }
 
 
-
 exports.getpostCommentsonPost= async (req, res) => {
     try {
         const postId = req.query.postId || req.params.postId;
@@ -191,8 +183,6 @@ exports.getpostCommentsonPost= async (req, res) => {
         res.status(500).json({success:false, message:error.mesage})
     }
 }
-
-
 
 
 exports.getOpenuserLikedonPost = async (req, res, next) => {
@@ -231,8 +221,6 @@ exports.getOpenuserLikedonPost = async (req, res, next) => {
         res.status(500).json({ success: false, message: "An error occurred while processing your request." });
     }
 }
-
-
 
 
 
@@ -403,7 +391,6 @@ exports.removeLoginuserContent = async (req, res) => {
 
 
 
-
 exports.getAboutofLoginuser = async (req, res) => {
     try {
         const loginuser = await userModel.findOne({ email: req.user.email });
@@ -421,8 +408,6 @@ exports.getAboutofLoginuser = async (req, res) => {
 
 
 
-
-
 exports.loginuserAccountToggle = async (req, res) => {
     try {
         // Find the user by email and toggle the privateAccount field
@@ -437,7 +422,6 @@ exports.loginuserAccountToggle = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 }
-
 
 
 
@@ -529,6 +513,7 @@ exports.blockUser = async (req, res, ) => {
 }
 
 
+
 exports.getBlockedAccounts = async (req, res) => {
     try {
         const loginuser = await userModel.findOne({ email: req.user.email }).populate("blockedUsers");
@@ -537,6 +522,7 @@ exports.getBlockedAccounts = async (req, res) => {
         return res.status(500).json({ success: false, message: error.message });
     }
 }
+
 
 
 exports.unblockUser = async (req, res) => {
