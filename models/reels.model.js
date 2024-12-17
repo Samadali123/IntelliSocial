@@ -24,12 +24,6 @@ const reelsSchema = new mongoose.Schema(
         videoUrl: {
             type: String,
             required: true,
-            validate: {
-                validator: function (v) {
-                    return /\.(mp4|mp3)$/.test(v); // Validate video format
-                },
-                message: "Video format must be mp4 or mp3",
-            },
         },
         savedBy: {
             type: mongoose.Schema.Types.ObjectId,
@@ -47,23 +41,6 @@ const reelsSchema = new mongoose.Schema(
             type: Number,
             default: 0, // Initialize views to 0
         },
-        comments: [
-            {
-                user: {
-                    type: mongoose.Schema.Types.ObjectId,
-                    ref: "user",
-                    required: true,
-                },
-                text: {
-                    type: String,
-                    required: true,
-                },
-                createdAt: {
-                    type: Date,
-                    default: Date.now, // Timestamp for when the comment was created
-                },
-            },
-        ],
     },
     { timestamps: true }
 );

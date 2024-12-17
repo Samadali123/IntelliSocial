@@ -19,13 +19,13 @@ connection.once("open", () => {
 
 exports.uploadReelToCloudinary = async (req, res) => {
     try {
-        const { caption, duration } = req.body;
+        const { caption } = req.body;
 
         // Validate request body
-        if (!caption || !duration) {
+        if (!caption) {
             return res.status(400).json({
                 success: false,
-                message: "Caption and duration are required.",
+                message: "Caption is required.",
             });
         }
 
@@ -39,7 +39,7 @@ exports.uploadReelToCloudinary = async (req, res) => {
 
         // Find the file in GridFS
         const file = await gfs.files.findOne({ filename: req.file.filename });
-        if (!file || !file._id) {
+        if (!file) {
             return res.status(404).json({
                 success: false,
                 message: "File not found in GridFS.",
@@ -66,12 +66,21 @@ exports.uploadReelToCloudinary = async (req, res) => {
             readStream.pipe(uploadStream);
         });
 
+        // Analyze duration from the video URL
+        const videoDuration = cloudinaryResponse.duration; // Assuming Cloudinary returns duration in seconds
+        if (videoDuration > 60) {
+            return res.status(400).json({
+                success: false,
+                message: "Duration exceeded: Video duration cannot exceed 60 seconds.",
+            });
+        }
+
         // Save the reel details to the database
         const reel = new reelsModel({
             user: req.user.userId,
             caption,
-            duration,
             videoUrl: cloudinaryResponse.secure_url,
+            duration: videoDuration, // Save the duration
             views: 0,
         });
 
@@ -86,7 +95,8 @@ exports.uploadReelToCloudinary = async (req, res) => {
     } catch (error) {
         console.error("Error in uploadReelToCloudinary:", error.message);
 
-        if (error.message.includes("Cannot read properties of undefined")) {
+        // Check for specific error related to file processing
+        if (error.message.includes("Cannot read properties of undefined") || error.message.includes("File not found in GridFS")) {
             return res.status(500).json({
                 success: false,
                 message: "File processing error: The file may not exist in GridFS.",
@@ -101,7 +111,6 @@ exports.uploadReelToCloudinary = async (req, res) => {
         });
     }
 }
-
 
 
 

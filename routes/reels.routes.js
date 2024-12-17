@@ -1,16 +1,14 @@
 const express = require("express");
 const { authentication } = require("../middlewares/auth.middleware");
 const { uploadReelToCloudinary, getAllReels, getReelById, getReelsByUser, deleteReel, updateReel } = require("../controllers/reels.controller");
-const { uploadFile } = require("../middlewares/upload.middleware");
-// const upload = require("../middlewares/gridfs.middleware");
+const upload = require("../middlewares/gridfs.middleware");
 const router = express.Router();
 
 
 
 // POST route for uploading a reel to Cloudinary
 // /reels/upload
-// router.post('/upload',  [authentication, upload.single("reel")],  uploadReelToCloudinary);
-router.post("/upload",   [authentication, uploadFile ],  uploadReelToCloudinary)
+router.post('/upload',  [authentication, upload.single("video")],  uploadReelToCloudinary);
 
 // Get all reels
 // /reels/all

@@ -10,6 +10,19 @@ if (!mongoURI) {
     process.exit(1); // Exit the process if the MongoDB URI is not provided
 }
 
+// File filter for video formats
+const fileFilter = (req, file, cb) => {
+    const allowedTypes = /mp4|mkv|avi|mov|wmv|flv/; // Common video formats
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (extname && mimetype) {
+        return cb(null, true);
+    } else {
+        cb(new Error("Error: File type not supported!"), false);
+    }
+};
+
 // GridFS Storage
 const storage = new GridFsStorage({
     url: mongoURI,
@@ -32,7 +45,7 @@ const storage = new GridFsStorage({
 });
 
 // Multer Middleware
-const upload = multer({ storage });
+const upload = multer({ storage, fileFilter });
 
 // Export Middleware
 module.exports = upload;
