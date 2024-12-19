@@ -1,14 +1,14 @@
 const express = require("express");
 const { authentication } = require("../middlewares/auth.middleware");
-const { uploadReelToCloudinary, getAllReels, getReelById, getReelsByUser, deleteReel, updateReel } = require("../controllers/reels.controller");
-const upload = require("../middlewares/gridfs.middleware");
+const { getAllReels, getReelById, getReelsByUser, deleteReel, uploadReel, updateReel,} = require("../controllers/reels.controller");
+const   {createVideoUpload} = require("../middlewares/gridfs.middleware")
 const router = express.Router();
+require("dotenv").config();
 
 
+const videoUpload = createVideoUpload();
 
-// POST route for uploading a reel to Cloudinary
-// /reels/upload
-router.post('/upload',  [authentication, upload.single("video")],  uploadReelToCloudinary);
+router.post('/upload', [ authentication, videoUpload.single('video')], uploadReel);
 
 // Get all reels
 // /reels/all

@@ -1,51 +1,42 @@
-const multer = require("multer");
-const { GridFsStorage } = require("multer-gridfs-storage");
-const crypto = require("crypto");
-const path = require("path");
+const multer = require('multer');
+const { GridFsStorage } = require('multer-gridfs-storage');
+const path = require('path');
+const crypto = require('crypto');
+const mongoose = require('mongoose');
 
-// MongoDB URI
-const mongoURI = process.env.MONGO_URI;
-if (!mongoURI) {
-    console.error("MongoURI is not accessible. Please set it in the environment variables.");
-    process.exit(1); // Exit the process if the MongoDB URI is not provided
-}
+const createGridFsStorage = () => {
+    return new GridFsStorage({
+        url: process.env.MONGO_URI,
+        file: (req, file) => {
+            return new Promise((resolve, reject) => {
+                if (mongoose.connection.readyState !== 1) {
+                    return reject(new Error('MongoDB connection is not established'));
+                }
 
-// File filter for video formats
-const fileFilter = (req, file, cb) => {
-    const allowedTypes = /mp4|mkv|avi|mov|wmv|flv/; // Common video formats
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
+                crypto.randomBytes(16, (err, buf) => {
+                    if (err) return reject(err);
 
-    if (extname && mimetype) {
-        return cb(null, true);
-    } else {
-        cb(new Error("Error: File type not supported!"), false);
-    }
+                    const filename = `${buf.toString('hex')}${path.extname(file.originalname)}`;
+                    resolve({
+                        filename,
+                        bucketName: 'uploads',
+                        metadata: {
+                            originalName: file.originalname,
+                            mimetype: file.mimetype,
+                            uploadedBy: req.user ? req.user.id : null,
+                            uploadedAt: new Date()
+                        }
+                    });
+                });
+            });
+        }
+    });
 };
 
-// GridFS Storage
-const storage = new GridFsStorage({
-    url: mongoURI,
-    file: (req, file) => {
-        return new Promise((resolve, reject) => {
-            crypto.randomBytes(16, (err, buf) => {
-                if (err) {
-                    console.error("Error generating filename:", err);
-                    return reject(err);
-                }
-                const filename = buf.toString("hex") + path.extname(file.originalname);
-                const fileInfo = {
-                    filename: filename,
-                    bucketName: "uploads", // Ensure this matches your MongoDB GridFS bucket name
-                };
-                resolve(fileInfo);
-            });
-        });
-    },
-});
-
-// Multer Middleware
-const upload = multer({ storage, fileFilter });
-
-// Export Middleware
-module.exports = upload;
+exports.createVideoUpload = (options = {}) => {
+    const storage = createGridFsStorage();
+    return multer({
+        storage,
+        limits: { fileSize: 50 * 1024 * 1024, ...options.limits }
+    });
+};

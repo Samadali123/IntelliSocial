@@ -6,111 +6,288 @@ const reelsModel = require("../models/reels.model");
 
 
 
-// Initialize GridFS
-const connection = mongoose.connection;
-let gfs;
 
-connection.once("open", () => {
-    gfs = Grid(connection.db, mongoose.mongo);
-    gfs.collection("uploads"); // Replace with your bucket name if different
+// Initialize GridFS
+let gfs;
+const conn = mongoose.connection;
+conn.once('open', () => {
+    gfs = Grid(conn.db, mongoose.mongo);
+    gfs.collection('uploads');
 });
 
+// exports.uploadReel = async (req, res) => {
+
+//     try {
+//         // Input validation
+//         const { caption } = req.body;
+//         if (!caption || caption.trim() === '') {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Caption is required"
+//             });
+//         }
+
+//         // Check if file exists in GridFS
+//         if (!req.file) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "No video file uploaded"
+//             });
+//         }
+
+//         // Find the file in GridFS
+//         const file = await gfs.files.findOne({ filename: req.file.filename });
+//         if (!file) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "File not found in GridFS"
+//             });
+//         }
+
+//         // Cloudinary upload function
+//         const cloudinaryUpload = () => {
+//             return new Promise((resolve, reject) => {
+//                 // Create download stream from GridFS
+//                 const downloadStream = gfs.createReadStream({ 
+//                     filename: req.file.filename 
+//                 });
+
+//                 // Cloudinary upload stream
+//                 const uploadStream = cloudinary.uploader.upload_stream(
+//                     { 
+//                         resource_type: "video", 
+//                         folder: "reels",
+//                         chunk_size: 6000000 
+//                     }, 
+//                     (error, result) => {
+//                         if (error) reject(error);
+//                         else resolve(result);
+//                     }
+//                 );
+
+//                 // Pipe GridFS stream to Cloudinary
+//                 downloadStream.pipe(uploadStream);
+                
+//                 // Handle stream errors
+//                 downloadStream.on('error', (err) => {
+//                     reject(new Error(`GridFS stream error: ${err.message}`));
+//                 });
+//             });
+//         };
+
+//         // Upload to Cloudinary
+//         const cloudinaryResponse = await cloudinaryUpload();
+
+//         // Validate video duration
+//         const videoDuration = cloudinaryResponse.duration || 0;
+//         if (videoDuration > 60) {
+//             // Delete Cloudinary upload if too long
+//             await cloudinary.uploader.destroy(cloudinaryResponse.public_id);
+            
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Video duration cannot exceed 60 seconds",
+//                 actualDuration: videoDuration
+//             });
+//         }
+
+//         // Create reel entry
+//         const newReel = new reelsModel({
+//             user: req.user.userId,
+//             caption: caption.trim(),
+//             videoUrl: cloudinaryResponse.secure_url,
+//             cloudinaryPublicId: cloudinaryResponse.public_id,
+//             duration: videoDuration
+//         });
+
+//         // Save reel
+//         await newReel.save();
+
+//         // Optional: Delete file from GridFS after successful upload
+//         await gfs.files.deleteOne({ filename: req.file.filename });
+
+//         // Success response
+//         res.status(201).json({
+//             success: true,
+//             message: "Reel uploaded successfully",
+//             reel: {
+//                 id: newReel._id,
+//                 caption: newReel.caption,
+//                 videoUrl: newReel.videoUrl
+//             }
+//         });
+
+//     } catch (error) {
+//         console.error("Reel Upload Error:", error);
+
+//         // Specific error handling
+//         if (error.message.includes("File size too large")) {
+//             return res.status(413).json({
+//                 success: false,
+//                 message: "File is too large. Maximum size is 50MB."
+//             });
+//         }
+
+//         // Generic server error
+//         res.status(500).json({
+//             success: false,
+//             message: "Internal server error during reel upload",
+//             error: process.env.NODE_ENV === 'production' ? 'An error occurred' : error.message
+//         });
+//     }
+// };
 
 
-exports.uploadReelToCloudinary = async (req, res) => {
+
+
+
+exports.uploadReel = async (req, res) => {
     try {
+        // Input validation
         const { caption } = req.body;
-
-        // Validate request body
-        if (!caption) {
+        if (!caption || caption.trim() === '') {
             return res.status(400).json({
                 success: false,
-                message: "Caption is required.",
+                message: "Caption is required"
             });
         }
 
-        // Validate file upload
+        // Check if file exists in GridFS
         if (!req.file) {
             return res.status(400).json({
                 success: false,
-                message: "No video file uploaded.",
+                message: "No video file uploaded"
             });
         }
 
-        // Find the file in GridFS
+        // Verify that the file was properly saved in GridFS
         const file = await gfs.files.findOne({ filename: req.file.filename });
         if (!file) {
             return res.status(404).json({
                 success: false,
-                message: "File not found in GridFS.",
+                message: "File not found in GridFS. It may have been uploaded in chunks but not fully saved."
             });
         }
 
-        // Create a read stream for the file
-        const readStream = gfs.createReadStream({ _id: file._id });
+        // Cloudinary upload function
+        const cloudinaryUpload = () => {
+            return new Promise((resolve, reject) => {
+                // Create download stream from GridFS
+                const downloadStream = gfs.createReadStream({
+                    filename: req?.file?.filename
+                });
 
-        // Upload the file to Cloudinary
-        const cloudinaryResponse = await new Promise((resolve, reject) => {
-            const uploadStream = cloudinary.uploader.upload_stream(
-                { resource_type: "video", folder: "reels" },
-                (error, result) => {
-                    if (error) return reject(error);
-                    resolve(result);
-                }
-            );
+                // Cloudinary upload stream
+                const uploadStream = cloudinary.uploader.upload_stream(
+                    {
+                        resource_type: "video",
+                        folder: "reels",
+                        chunk_size: 6000000
+                    },
+                    (error, result) => {
+                        if (error) reject(error);
+                        else resolve(result);
+                    }
+                );
 
-            readStream.on("error", (err) => {
-                reject(new Error("Error reading the file from GridFS: " + err.message));
+                // Pipe GridFS stream to Cloudinary
+                downloadStream.pipe(uploadStream);
+
+                // Handle stream errors
+                downloadStream.on('error', (err) => {
+                    reject(new Error(`GridFS stream error: ${err.message}`));
+                });
             });
+        };
 
-            readStream.pipe(uploadStream);
-        });
+        // Upload to Cloudinary
+        const cloudinaryResponse = await cloudinaryUpload();
 
-        // Analyze duration from the video URL
-        const videoDuration = cloudinaryResponse.duration; // Assuming Cloudinary returns duration in seconds
+        // Validate video duration
+        const videoDuration = cloudinaryResponse.duration || 0;
         if (videoDuration > 60) {
+            // Delete Cloudinary upload if too long
+            await cloudinary.uploader.destroy(cloudinaryResponse.public_id);
+
             return res.status(400).json({
                 success: false,
-                message: "Duration exceeded: Video duration cannot exceed 60 seconds.",
+                message: "Video duration cannot exceed 60 seconds",
+                actualDuration: videoDuration
             });
         }
 
-        // Save the reel details to the database
-        const reel = new reelsModel({
+        // Create reel entry
+        const newReel = new reelsModel({
             user: req.user.userId,
-            caption,
+            caption: caption.trim(),
             videoUrl: cloudinaryResponse.secure_url,
-            duration: videoDuration, // Save the duration
-            views: 0,
+            cloudinaryPublicId: cloudinaryResponse.public_id,
+            duration: videoDuration
         });
 
-        await reel.save();
+        // Save reel
+        await newReel.save();
 
-        // Respond with success
+        // Optional: Delete file from GridFS after successful upload
+        await gfs.files.deleteOne({ filename: req.file.filename });
+
+        // Success response
         res.status(201).json({
             success: true,
-            message: "Reel uploaded successfully.",
-            reel,
+            message: "Reel uploaded successfully",
+            reel: {
+                id: newReel._id,
+                caption: newReel.caption,
+                videoUrl: newReel.videoUrl
+            }
         });
-    } catch (error) {
-        console.error("Error in uploadReelToCloudinary:", error.message);
 
-        // Check for specific error related to file processing
-        if (error.message.includes("Cannot read properties of undefined") || error.message.includes("File not found in GridFS")) {
+    } catch (error) {
+        console.error("Reel Upload Error:", error);
+
+        // Specific error handling for GridFS chunk upload issue
+        if (error.message.includes("chunks not found")) {
             return res.status(500).json({
                 success: false,
-                message: "File processing error: The file may not exist in GridFS.",
-                error: error.message,
+                message: "File upload was incomplete or corrupted. Please try uploading the video again."
             });
         }
 
+        // Specific error handling for file size
+        if (error.message.includes("File size too large")) {
+            return res.status(413).json({
+                success: false,
+                message: "File is too large. Maximum size is 50MB."
+            });
+        }
+
+        // Generic server error
         res.status(500).json({
             success: false,
-            message: "Error uploading reel.",
-            error: error.message,
+            message: "Internal server error during reel upload",
+            error: process.env.NODE_ENV === 'production' ? 'An error occurred' : error.message
         });
     }
-}
+};
+
+
+
+
+
+
+
+
+
+// Optional: Cleanup method for failed uploads
+exports.cleanupFailedUpload = async (cloudinaryPublicId) => {
+    if (cloudinaryPublicId) {
+        try {
+            await cloudinary.uploader.destroy(cloudinaryPublicId);
+        } catch (error) {
+            console.error("Cleanup failed for Cloudinary upload:", error);
+        }
+    }
+};
 
 
 
