@@ -18,7 +18,6 @@ const notesRoutes = require("./routes/notes.routes")
 const storyRoutes = require("./routes/story.routes")
 const highlightsRoutes = require("./routes/highlights.routes")
 const settingsRoutes = require("./routes/settings.routes")
-const reelsRoutes = require("./routes/reels.routes")
 
 
 
@@ -54,6 +53,7 @@ app.use(cookieParser()); // Parse cookies
 // Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
+
 // Middleware setup
 app.use(logger("tiny"));  // HTTP request logging
 app.use(express.json()); // JSON body parsing
@@ -87,8 +87,6 @@ app.use("/highlights", highlightsRoutes);
 // Settings routes
 app.use("/settings", settingsRoutes);
 
-// reels routes
-app.use("/reels", reelsRoutes)
 
 
 // Handle unknown routes seamlessly

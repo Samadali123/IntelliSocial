@@ -104,10 +104,7 @@ const userSchema = mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "user"
     }],
-    reels: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "reels"
-    }]
+   
 }, { versionKey: false, timestamps: true });
 
 module.exports = mongoose.model(`user`, userSchema);

@@ -145,8 +145,32 @@ exports.uploadHighlight = async (req, res) => {
 
 exports.getHighlights = async (req, res) => {
     try {
-        const userId = req.query.userId || req.params.userId;
+        const userId = req.query.userId || req.body.userId;
         if(! userId) return res.status(403).json({success:false, message : "please provide userId for get highligjts"})
+
+        const user = await userModel.findById(userId);
+        if (! user) return res.status(403).json({ success: false, message: "User not found" });
+
+        // Fetch all highlights for the logged-in user
+        const highlights = await HighlightModel.find({ user: user._id }).populate("stories");
+
+        if(highlights.length == 0) return res.status(403).json({success:false, message : "you Dont have any highligjts"})
+
+        // Return all highlights in JSON format
+        res.status(200).json({ success: true, highlights });
+    } catch (error) {
+        // Handle errors by returning a 500 status code and the error message
+        res.status(500).json({ success: false, message: error.message });
+    }
+}
+
+
+
+
+exports.getHighlightsOfLoginuser = async (req, res) => {
+    try {
+        const userId = req.user.userid;
+        if(! userId) return res.status(400).json({success:false, message : "User is not Authenticated ,Please login to continue"});
 
         const user = await userModel.findById(userId);
         if (! user) return res.status(403).json({ success: false, message: "User not found" });

@@ -37,10 +37,12 @@ router.get("/myposts/open", authentication, getLoginUserPost)
 // /posts/comments/toggle
 router.put("/comments/toggle", authentication,  toggleCommentsOnPost)
 
-// /posts/likes/toggle
-router.put("/likes/toggle'", authentication, toggleLikesOnPost)
+
+// /posts/toggle/likes
+router.put("/likes/toggle",  authentication,   toggleLikesOnPost)
 
 // /posts/pin/toggle
+
 router.put("/pin/toggle", authentication, togglePinnedOnPost)
 
 // /posts/edit

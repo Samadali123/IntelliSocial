@@ -197,18 +197,25 @@ exports.getLikedPosts = async (req, res) => {
 
 exports.likedPostUserSearch = async (req, res) => {
     try {
-        const post = await postModel.findById(req.params.postId || req.query.postId);
-        if(! post) return res.status(403).json({success:false, message: "post not found"});
+        const postId = req.params.postId || req.query.postId;
+        if (!postId) return res.status(403).json({ success: false, message: "Please provide a post ID" });
 
-        await post.populate('likes');
-        const input = req.params.input || req.query.input;
-        if(! input) return res.status(403).json({success:false, message : "please provide input for search "})
-        const regex = new RegExp(`^${input}`, 'i');
-        const users = post.likes.filter(like => regex.test(like.username));
-         if(users.length == 0 )  return res.status(403).json({success:false, message : "users not found who liked this post."})
-        res.status(200).json({success:true, loginuser,users});
+        const post = await postModel.findById(postId).populate('likes');
+        if (!post) return res.status(403).json({ success: false, message: "Post not found" });
+
+        const input = req.query.input;
+        if (!input) return res.status(403).json({ success: false, message: "Please provide input for search" });
+
+        const regex = new RegExp(input, 'i');
+        const users = await userModel.find({username : regex });
+        if(users.length === 0 ) return res.status(403).json({success:false, message : "Not find user you searched for ."})
+       
+        res.status(200).json({success:true, users})
     } catch (error) {
-       res.status(500).json({ success:false, message : error.message})
+        if (error.name === 'CastError') {
+            return res.status(403).json({ success: false, message: "Invalid post ID format" });
+        }
+        res.status(500).json({ success: false, message: error.message });
     }
 }
 
@@ -221,21 +228,20 @@ exports.likeComment = async (req, res) => {
 
         const commentId = req.body.commentId || req.query.commentId;
         if (!commentId) return res.status(400).json({ success: false, message: "Comment ID is required." });
-        const comment = await commentModel.findOne({ _id: commentId });
-        
-        const length = comment.likes.length;
+        const comment = await commentModel.findById(commentId);
+        if (!comment) return res.status(404).json({ success: false, message: "Comment not found" });
 
-        if (comment.likes.indexOf(loginuser._id) === -1) {
-            comment.likes.push(loginuser._id);
+        const isLiked = comment.likes.includes(loginuser._id);
+        if (isLiked) {
+            comment.likes = comment.likes.filter(id => id.toString() !== loginuser._id.toString());
         } else {
-            comment.likes.splice(comment.likes.indexOf(loginuser._id), 1);
+            comment.likes.push(loginuser._id);
         }
 
-        await loginuser.save();
         await comment.save();
-        res.status(200).json({ success: true, totallikes : comment.likes});
+        res.status(200).json({ success: true, message: isLiked ? "Comment unliked" : "Comment liked", totalLikes: comment.likes.length });
     } catch (error) {
-        res.status(500).json({ success: false, message : error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 }
 
@@ -372,10 +378,9 @@ exports.toggleCommentsOnPost = async (req, res) => {
 
 
 exports.toggleLikesOnPost = async (req, res) => {
-    try {
-
-        const postId = req.query.postId || req.body.postId || req.params.postId;
-        if(! postId) return res.status(403).json({success:false, message : "Please provide postId"})
+      try {
+           const postId = req.query.postId || req.body.postId;
+           if(! postId) return res.status(403).json({success:false, message : "Please provide PostId"})
 
         const post = await postModel.findById(postId);
         if (!post) {
@@ -383,10 +388,10 @@ exports.toggleLikesOnPost = async (req, res) => {
         }
         post.hidelikes = !post.hidelikes;
         const updatedPost = await post.save();
-        res.status(200).json({ success: true, updatedPost });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+        res.status(200).json({ success: true, message:"Toggle Post likes successfully",updatedPost });
+      } catch (error) {
+         console.error(error)
+      }
 }
 
 
@@ -396,8 +401,8 @@ exports.togglePinnedOnPost = async (req, res) => {
         if (!loginUser) {
             return res.status(404).json({ error: 'User not found' });
         }
-
-        const postId = req.query.postId || req.body.postId || req.query.postId;
+       
+        const postId = req.query.postId || req.body.postId ;
         if (!postId) {
             return res.status(400).json({ success: false, message: "Post ID is required." });
         }

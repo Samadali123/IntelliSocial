@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const {authentication} = require("../middlewares/auth.middleware");
-const {getStoriesForHighlights, getHighlights, addHighlightsCover, uploadHighlight } = require('../controllers/highlights.controllers');
+const {getStoriesForHighlights, getHighlights, addHighlightsCover, uploadHighlight, getHighlightsOfLoginuser } = require('../controllers/highlights.controllers');
 const upload = require('../middlewares/images.middleware');
 
 
@@ -19,6 +19,11 @@ router.post("/upload",  [authentication, upload.single("coverimage")] , uploadHi
 
 ///highlights/gethighlights
 router.get("/gethighlights", authentication, getHighlights );
+
+
+// /highlights/gethighlights/loginuser
+router.get("/gethighlights/loginuser", authentication, getHighlightsOfLoginuser);
+
 
 
 

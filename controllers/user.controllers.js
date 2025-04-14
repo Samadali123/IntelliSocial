@@ -268,6 +268,33 @@ exports.resetPassword = async (req, res) => {
 
 
 
+exports.getTotalUsers = async (req, res) => {
+    try {
+        // Find total users
+        const totalUsers = await userModel.countDocuments();
+        if (totalUsers === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'No users found.'
+            });
+        }
+        // Get all user names
+        const allUsers = await userModel.find({}, 'username');
+        return res.status(200).json({
+            success: true,
+            totalUsers,
+            allUsers
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+
+
 
 
 

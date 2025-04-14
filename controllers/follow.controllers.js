@@ -157,7 +157,8 @@ exports.getLoginuserFollowings = async (req, res) => {
 
 exports.removeLoginuserFollower = async (req, res) => {
     try {
-        const { userId } = req.body || req.query.userId;
+        const userId = req.query.userId || req.body.userId;
+
 
         // Check if userId is provided
         if (!userId) {
@@ -209,21 +210,21 @@ exports.removeLoginuserFollower = async (req, res) => {
 
 exports.searchUserFollowers = async (req, res) => {
     try {
-        const openUser = req.params.openuserId || req.query.openuserId;
-        const input = req.params.input || req.query.input;
+        const openUserId = req.body.openUserId || req.query.openUserId;
+        const inputQuery = req.body.input || req.query.input;
 
         // Check if openUser and input are provided
-        if (!openUser || !input) {
+        if (!openUserId || !inputQuery) {
             return res.status(400).json({ success: false, message: 'Open user and input are required.' });
         }
 
         // Check if openUser is a valid MongoDB ObjectId
-        if (!mongoose.Types.ObjectId.isValid(openUser)) {
+        if (!mongoose.Types.ObjectId.isValid(openUserId)) {
             return res.status(400).json({ success: false, message: 'Invalid user ID format.' });
         }
 
-        const regex = new RegExp(`^${input}`, 'i');
-        const user = await userModel.findOne({ _id: openUser }).populate('followers');
+        const regex = new RegExp(inputQuery, 'i');
+        const user = await userModel.findOne({ _id: openUserId }).populate('followers');
 
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
@@ -236,6 +237,7 @@ exports.searchUserFollowers = async (req, res) => {
 
         const followers = user.followers.filter(follower => regex.test(follower.username));
         res.status(200).json({ success: true, followers });
+
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -245,21 +247,21 @@ exports.searchUserFollowers = async (req, res) => {
 
 exports.searchUserFollowings = async (req, res) => {
     try {
-        const openUser = req.params.openuserId || req.query.openuserId;
-        const input = req.params.input || req.query.input;
+        const openUserId = req.body.openUserId || req.query.openUserId;
+        const inputQuery = req.body.input || req.query.input;
 
         // Check if openUser and input are provided
-        if (!openUser || !input) {
+        if (!openUserId || !inputQuery) {
             return res.status(400).json({ success: false, message: 'Open user and input are required.' });
         }
 
         // Check if openUser is a valid MongoDB ObjectId
-        if (!mongoose.Types.ObjectId.isValid(openUser)) {
+        if (!mongoose.Types.ObjectId.isValid(openUserId)) {
             return res.status(400).json({ success: false, message: 'Invalid user ID format.' });
         }
 
-        const regex = new RegExp(`^${input}`, 'i');
-        const user = await userModel.findOne({ _id: openUser }).populate('following');
+        const regex = new RegExp(inputQuery, 'i');
+        const user = await userModel.findOne({ _id: openUserId }).populate('following');
 
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
@@ -276,6 +278,7 @@ exports.searchUserFollowings = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 }
+
 
 
 

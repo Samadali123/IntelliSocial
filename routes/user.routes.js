@@ -8,7 +8,7 @@ const bcrypt = require("bcrypt");
 const { v4: uuidV4 } = require(`uuid`);
 const { authentication } = require("../middlewares/auth.middleware")
 const sendToken = require('../utils/sendtoken.utils');
-const { homePage, SignUp, SignOut, SignIn, sentMail, getLoginuser, updatePassword, resetPassword } = require('../controllers/user.controllers');
+const { homePage, SignUp, SignOut, SignIn, sentMail, getLoginuser, updatePassword, resetPassword, getTotalUsers } = require('../controllers/user.controllers');
 
 
 router.get('/login/federated/google',  passport.authenticate('google'));
@@ -77,6 +77,8 @@ router.post("/newpassword", updatePassword)
 router.post("/resetpassword", authentication,  resetPassword)
 
 
+// /users/totalusers
+router.get("/totalusers",    getTotalUsers)
 
 
 

@@ -57,8 +57,6 @@ exports.getFeeds = async(req, res, next) => {
 
 
 
-
-
 exports.searchUsers = async(req, res, next) => {
     try {
 
