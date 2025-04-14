@@ -44,7 +44,7 @@ exports.getOpenUserPosts = async (req, res, next) => {
             return res.status(404).json({ success: false, message: "Open user not found!" });
         }
 
-       const postId = req.query.postId || req.params.postId;
+       const postId = req.query.postId || req.params.postId || req.body.postId;
        if(!postId) return res.status(404).json({success:false, message : "Please provide postId "});
 
 
@@ -298,7 +298,7 @@ exports.getSingleHighlight = async (req, res) => {
         }
 
         // Extract the highlightId from params or query
-        const highlightId = req.params.highlightId || req.query.highlightId;
+        const highlightId = req.params.highlightId || req.query.highlightId || req.body.highlightId;
         if (!highlightId) {
             return res.status(400).json({ success: false, message: "Please provide a valid HighlightId." });
         }
