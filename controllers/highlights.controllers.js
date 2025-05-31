@@ -1,13 +1,10 @@
-const userModel = require("../models/user.model")
-const HighlightModel = require("../models/highlights.model")
-const storyModel = require("../models/story.model")
-const mongoose = require("mongoose")
-
-
+const highlightsDao = require('../Dao/highlights.dao');
+const userDao = require('../Dao/user.dao');
+const storyModel = require('../models/story.model');
 
 exports.getStoriesForHighlights = async (req, res) => {
     try {
-        const loginuser = await userModel.findOne({ email: req.user.email }).populate("myStories");
+        const loginuser = await userDao.findByEmail(req.user.email);
         if(loginuser.myStories.length == 0) return res.status(404).json({success:false, message: "No Stroies Available"})
         if(! loginuser) return res.status(403).json({success:false, message : "user not found"})
         res.status(200).json({ loginuser , stories: loginuser.myStories});
@@ -16,12 +13,10 @@ exports.getStoriesForHighlights = async (req, res) => {
     }
 }
 
-
-
 exports.addHighlightsCover = async (req, res, next) => {
     try {
         // Fetch the logged-in user based on the request's user email
-        const loginuser = await userModel.findOne({ email: req.user.email });
+        const loginuser = await userDao.findByEmail(req.user.email);
 
         if (!loginuser) {
             return res.status(404).json({ error: "User not found" });
@@ -66,105 +61,74 @@ exports.addHighlightsCover = async (req, res, next) => {
 };
 
 
-
-
-
-exports.uploadHighlight = async (req, res) => {
+exports.createHighlight = async (req, res) => {
     try {
-        // Ensure the user is authenticated
-        const loginuser = await userModel.findOne({ email: req.user.email });
-        if (!loginuser) {
+        if (!req.file || !req.file.path) {
+            return res.status(400).json({ success: false, message: "Please provide an image to upload" });
+        }
+
+        const { title, ids } = req.body;
+        const image = req.file.path;
+
+        if (!title || !ids) {
+            return res.status(400).json({ success: false, message: "Please provide all the required fields" });
+        }
+
+        let storyIds = ids;
+
+        // Handle case when `ids` is a stringified array (from form-data or frontend)
+        if (typeof ids === 'string') {
+            try {
+                storyIds = JSON.parse(ids);
+            } catch (err) {
+                return res.status(400).json({ success: false, message: "Invalid JSON in ids" });
+            }
+        }
+
+        if (!Array.isArray(storyIds)) {
+            return res.status(400).json({ success: false, message: "Please provide a valid array of story IDs" });
+        }
+
+        const user = await userDao.findByEmail(req.user.email);
+        if (!user) {
             return res.status(404).json({ success: false, message: "User not found" });
         }
 
-        // Extract ids and title from request body
-        let { ids, title } = req.body;
-        ids = JSON.parse(ids);
-
-        if (!title) return res.status(400).json({ success: false, message: "Please provide title for highlight" });
-        if (!ids) return res.status(400).json({ success: false, message: "Please provide ids for highlight" });
-
-        if (!ids && !title) return res.status(400).json({ success: false, message: "Please Provide Ids and Title for uploading the Highlight" });
-
-        title = title ? title.trim() : "Untitled";
-
-        // Validate ids
-        if (!Array.isArray(ids)) {
-            return res.status(400).json({ success: false, message: "Invalid Ids format It must be in an Array of Ids" });
-        }
-
-        // Trim any extra spaces from the IDs
-        ids = ids.map(id => id.trim()).filter(id => id); // Filter out any empty strings
-
-        // Fetch all stories for the ids
-        const stories = await Promise.all(ids.map(async (id) => {
-            try {
-                const story = await storyModel.findById(id);
-                if (!story) {
-                    console.warn(`Story not found for id: ${id}`);
-                    return null;
-                }
-                return story;
-            } catch (err) {
-                console.error(`Error fetching story with id ${id}:`, err);
-                return null;
-            }
-        }));
-
-        // Filter out any null values in case any stories were not found
-        const filteredStories = stories.filter(story => story !== null);
-        if (filteredStories.length === 0) {
-            return res.status(404).json({ success: false, message: "No valid stories found for the provided IDs." });
-        }
-
-        // Check if the file is present before accessing its path
-        if (!req.file || !req.file.path) {
-            return res.status(400).json({ success: false, message: "Please provide a cover image for the highlight" });
-        }
-
-        // Create new highlight with fetched stories and cover photo from req.file.path
-        const newHighlight = await HighlightModel.create({
+        const newHighlight = await highlightsDao.createHighlight({
+            stories: storyIds,
+            coverphoto: image,
             title,
-            user: loginuser._id,
-            stories: filteredStories,
-            coverphoto: req.file.path // Use the cover photo URL from the uploaded file
+            user: user._id
         });
 
-        loginuser.highlights.push(newHighlight._id);
-        await newHighlight.populate("stories"); // Ensure stories are populated
-        await newHighlight.save();
-        await loginuser.save();
-        req.flash("success", "Highlight created successfully.");
-        res.status(201).json({ success: true, message: req.flash("success"), newHighlight });
+        await userDao.addHighlight(user._id, newHighlight._id);
+
+        res.status(201).json({ success: true, message: "Highlight created successfully", highlight: newHighlight });
     } catch (error) {
-        res.status(500).json({ success: false, message: "Internal Server Error", details: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
 
 
 exports.getHighlights = async (req, res) => {
     try {
-        const userId = req.query.userId || req.body.userId;
-        if(! userId) return res.status(403).json({success:false, message : "please provide userId for get highligjts"})
+        const userId = req.query.userId;
+        if(! userId) return res.status(400).json({success:false, message : "Please provide User Id"});
 
-        const user = await userModel.findById(userId);
-        if (! user) return res.status(403).json({ success: false, message: "User not found" });
+        const user = await userDao.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
 
-        // Fetch all highlights for the logged-in user
-        const highlights = await HighlightModel.find({ user: user._id }).populate("stories");
+        const highlights = await highlightsDao.findByUserIdWithPopulate(user._id, 'user');
+        if(highlights.length == 0) return res.status(403).json({success:false, message : "No Highlights Found"})
 
-        if(highlights.length == 0) return res.status(403).json({success:false, message : "you Dont have any highligjts"})
-
-        // Return all highlights in JSON format
         res.status(200).json({ success: true, highlights });
     } catch (error) {
-        // Handle errors by returning a 500 status code and the error message
         res.status(500).json({ success: false, message: error.message });
     }
-}
-
-
+};
 
 
 exports.getHighlightsOfLoginuser = async (req, res) => {
@@ -172,11 +136,11 @@ exports.getHighlightsOfLoginuser = async (req, res) => {
         const userId = req.user.userid;
         if(! userId) return res.status(400).json({success:false, message : "User is not Authenticated ,Please login to continue"});
 
-        const user = await userModel.findById(userId);
+        const user = await userDao.findById(userId);
         if (! user) return res.status(403).json({ success: false, message: "User not found" });
 
         // Fetch all highlights for the logged-in user
-        const highlights = await HighlightModel.find({ user: user._id }).populate("stories");
+        const highlights = await highlightsDao.findByUserIdWithPopulate(user._id, 'user');
 
         if(highlights.length == 0) return res.status(403).json({success:false, message : "you Dont have any highligjts"})
 
@@ -187,3 +151,52 @@ exports.getHighlightsOfLoginuser = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 }
+
+
+exports.getSingleHighlight = async (req, res) => {
+    try {
+        const highlightId = req.params.id
+        if (!highlightId) {
+            return res.status(400).json({ success: false, message: "Highlight ID is required" });
+        }
+
+        const highlight = await highlightsDao.findByIdWithPopulate(highlightId, 'user');
+        if (!highlight) {
+            return res.status(404).json({ success: false, message: "Highlight not found" });
+        }
+
+        res.status(200).json({ success: true, highlight });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+
+exports.deleteHighlight = async (req, res) => {
+    try {
+        const highlightId = req.params.id;
+        if (!highlightId) {
+            return res.status(400).json({ success: false, message: "Highlight ID is required" });
+        }
+
+        const user = await userDao.findByEmail(req.user.email);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found or not Authenticated" });
+        }
+
+        const highlight = await highlightsDao.findById(highlightId);
+        if (!highlight) {
+            return res.status(404).json({ success: false, message: "Highlight not found" });
+        }
+
+        if (!highlight.user.equals(user._id)) {
+            return res.status(403).json({ success: false, message: "Not authorized to delete this highlight" });
+        }
+
+        await highlightsDao.deleteHighlight(highlightId);
+        await userDao.removeHighlight(user._id, highlightId);
+        res.status(200).json({ success: true, message: "Highlight deleted successfully" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

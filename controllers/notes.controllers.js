@@ -1,6 +1,4 @@
-const userModel = require("../models/user.model")
-
-
+const notesDao = require('../Dao/notes.dao');
 
 exports.createNote = async (req, res) => {
     try {
@@ -9,30 +7,20 @@ exports.createNote = async (req, res) => {
             return res.status(400).json({ success: false, message: "Note title is required to add a note." });
         }
 
-        const updatedUser = await userModel.findOneAndUpdate(
-            { email: req.user.email },
-            { $set: { note: note } },
-            { new: true }
-        );
-       
+        const updatedUser = await notesDao.createOrUpdateNote(req.user.email, note);
         res.status(200).json({ success: true, message: "Note added successfully.", updatedUser });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
-}
-
+};
 
 exports.deleteNote = async (req, res) => {
     try {
-        if(! req.user.email) return res.status(404).json({success:false, message:"login user not found"})
+        if(!req.user.email) return res.status(404).json({success:false, message:"login user not found"});
             
-        const updatedUser = await userModel.findOneAndUpdate(
-            { email: req.user.email },
-            { $set: { note: "" } },
-            { new: true }
-        );
+        const updatedUser = await notesDao.deleteNote(req.user.email);
         res.status(200).json({ success: true, message: "Note deleted successfully.", updatedUser });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
-}
+};

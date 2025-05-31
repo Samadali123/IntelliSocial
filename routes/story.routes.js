@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {authentication} = require("../middlewares/auth.middleware")
 const upload = require("../middlewares/images.middleware");
-const { addStory, likeStory, deleteStory, getStories, getSingleStory } = require('../controllers/story.controllers');
+const { addStory, getStories, getSingleStory, likeStory, deleteStory } = require('../controllers/story.controllers');
 
 
 
@@ -13,13 +13,13 @@ router.post(`/add/story`, [authentication,upload.single(`storyimage`)],  addStor
 router.get("/get/stories", authentication,  getStories)
 
 //  /get/story
-router.get("/get/story", authentication,  getSingleStory)
+router.get("/get/story/:id", authentication,  getSingleStory)
 
 // /stories/story/like
 router.put("/story/like", authentication,  likeStory);
 
 // /stories/story/delete
-router.delete("/story/delete", authentication,deleteStory);
+router.delete("/story/delete/:storyId", authentication,deleteStory);
 
 
 

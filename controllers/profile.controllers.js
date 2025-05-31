@@ -1,21 +1,18 @@
-const userModel = require("../models/user.model")
+const profileDao = require('../Dao/profile.dao');
+const userDao = require("../Dao/user.dao")
 
-exports.getLoginuserProfile = async(req,res, next) => {
+exports.getLoginuserProfile = async(req, res, next) => {
     try {
-        const loginuser = await userModel.findOne({ email: req.user.email }).populate(`posts`).populate("highlights")
-        if(! loginuser) return res.status(403).json({success:false, message : "login user is not found"})
+        const loginuser = await profileDao.getProfileWithPostsAndHighlights(req.user.email);
+        if(!loginuser) return res.status(403).json({success:false, message : "login user is not found"});
         res.status(200).json({ loginuser });
     } catch (error) {
-        res.status(500).json({ success:false, message: error.message})
+        res.status(500).json({ success:false, message: error.message});
     }
 }
 
-
 exports.uploadProfile = async(req, res, next) => {
     try {
-        const loginuser = await userModel.findOne({ email: req.user.email });
-        if(! loginuser) return res.status(403).json({success:false, message : "login user is not found"})
-
         if (!req.file || !req.file.path) {
             return res.status(400).json({
                 success: false,
@@ -23,23 +20,21 @@ exports.uploadProfile = async(req, res, next) => {
             });
         }
 
-        // Store the file path from Cloudinary
-        loginuser.profile = req.file.path;
+        const loginuser = await profileDao.updateProfilePicture(req.user.email, req.file.path);
+        if(!loginuser) return res.status(403).json({success:false, message : "login user is not found"});
 
-        await loginuser.save();
-        res.status(200).json({success:false, loginuser, message : "profile uploaded successfully."})
+        res.status(200).json({success:true, loginuser, message : "profile uploaded successfully."});
     } catch (error) {
-        res.status(500).json({success:false, message : error.message})
+        res.status(500).json({success:false, message : error.message});
     }
-  }
-
+}
 
 exports.editProfile = async(req, res, next) => {
     try {
         const { username, fullname, bio } = req.body;
         if(!username || !fullname || !bio) return res.status(403).json({success:false, message : "please provide fields for edit profile."});
         
-        const User = await userModel.findOne({ email: req.user.email });
+    const User = await  userDao.findByEmail(req.user.email);
         if(!User) return res.status(403).json({success:false, message : "login user is not found"});
         
         User.username = username;

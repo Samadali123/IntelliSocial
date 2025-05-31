@@ -1,109 +1,184 @@
-const userModel = require("../models/user.model")
-const postModel = require("../models/post.model")
+const postDao = require('../Dao/post.dao');
+const userDao = require('../Dao/user.dao');
 const commentModel = require("../models/comments.model")
 const utils = require("../utils/date.utils")
+const mongoose = require('mongoose');
 
-
-
-exports.uploadPost = async (req, res) => {
+exports.createPost = async (req, res) => {
     try {
-      const {caption} = req.body;
-        if (! caption) {
-            return res.status(400).json({ success: false, message: "Caption is required for a post" });
+        if (!req.files ) {
+            return res.status(400).json({ success: false, message: "Please provide an Image to uploadd" });
         }
 
-        // Get Cloudinary image URLs
-        if (!req.files) {
-            return res.status(400).json({ success: false, message: "please provide images" })
-        }
-        const images = req.files.map(file => file.path);
-
-        const loginuser = await userModel.findOne({ email: req.user.email });
-        if(! loginuser) return res.status(403).json({success:false , message : "login user not found"})
-
-        const createdpost = await postModel.create({
-            caption: req.body.caption,
-            image: images,
-            user: loginuser._id,
-        })
-
-        loginuser.posts.push(createdpost);
-        await loginuser.save();
-        res.status(200).json({success:false, message : "posts uploaded successfully", createdpost, loginuser})
-    } catch (error) {
-        res.status(500).json({ success:false, message:error.message })
-
-    }
-}
-
-exports.likePost = async (req, res) => {
-    try {
-        const loginuser = await userModel.findOne({ email: req.user.email })
-        if(! loginuser) return res.status(403).json({success:false , message : "login user not found"})
-
-        const post = await postModel.findById({ _id: req.body.postId  || req.query.postId}).populate(`user`);
-        if(! post) return res.status(403).json({success:false , message : "postnot found"})
-
-        if (post.likes.indexOf(loginuser._id) === -1) {
-            post.likes.push(loginuser._id);
-
-        } else {
-            post.likes.splice(post.likes.indexOf(loginuser._id), 1);
-
-        }
-        await post.save();
-        await loginuser.save();
-        res.status(200).json({success:true, loginuser, post, likesofpost:post.likes})
-    } catch (error) {
-        res.status(500).json({success:false, message : error.message})
-    }
-}
-
-exports.savePost = async (req, res) => {
-    try {
-        const loginuser = await userModel.findOne({ email: req.user.email }); // Corrected to find by email
-
-        if (!loginuser) return res.status(403).json({ success: false, message: "login user not found" });
-
-        const post = await postModel.findById(req.body.postId || req.query.postId); // Simplified findById call
-        if (!post) return res.status(403).json({ success: false, message: "post not found" });
-
-        if (loginuser.savedPosts.indexOf(post._id) === -1) { // Corrected to use loginuser
-            loginuser.savedPosts.push(post._id);
-        } else {
-            loginuser.savedPosts.splice(loginuser.savedPosts.indexOf(post._id), 1);
+        if (!req.body.caption) {
+            return res.status(400).json({ success: false, message: "Please provide a caption" });
         }
 
-        if (post.savedBy.indexOf(loginuser._id) === -1) { // Corrected to use loginuser
-            post.savedBy.push(loginuser._id);
-        } else {
-            post.savedBy.splice(post.savedBy.indexOf(loginuser._id), 1);
+        const user = await userDao.findByEmail(req.user.email);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
         }
 
-        await loginuser.save(); // Corrected to save loginuser
-        await post.save();
+        // Store all image URLs (from Cloudinary)
+        const imageUrls = req.files.map(file => file.path);
 
-        res.status(200).json({ success: true, post, loginuser, savedby: post.savedBy });
+        const newPost = await postDao.createPost({
+            user: user._id,
+            image: imageUrls, 
+            caption: req.body.caption
+        });
+
+        await userDao.addPost(user._id, newPost._id);
+
+        res.status(201).json({
+            success: true,
+            message: "Post created successfully",
+            post: newPost
+        });
+
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
-}
+};
+
+
+exports.getPosts = async (req, res) => {
+    try {
+        const user = await userDao.findByEmail(req.user.email);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        const posts = await postDao.findByUserIdWithPopulate(user._id, 'user comments');
+        res.status(200).json({ success: true, posts });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.getSinglePost = async (req, res) => {
+    try {
+        const postId = req.params.postId || req.query.postId;
+        if (!postId) {
+            return res.status(400).json({ success: false, message: "Post ID is required" });
+        }
+
+        const post = await postDao.findByIdWithPopulate(postId, 'user comments');
+        if (!post) {
+            return res.status(404).json({ success: false, message: "Post not found" });
+        }
+
+        res.status(200).json({ success: true, post });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.likePost = async (req, res) => {
+    try {
+        const postId = req.params.postId || req.query.postId;
+        if (!postId) {
+            return res.status(400).json({ success: false, message: "Post ID is required" });
+        }
+
+        const user = await userDao.findByEmail(req.user.email);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        const post = await postDao.findById(postId);
+        if (!post) {
+            return res.status(404).json({ success: false, message: "Post not found" });
+        }
+
+        const isLiked = post.likes.includes(user._id);
+        if (isLiked) {
+            await postDao.removeLike(postId, user._id);
+        } else {
+            await postDao.addLike(postId, user._id);
+        }
+
+        res.status(200).json({ success: true, message: isLiked ? "Post unliked" : "Post liked" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.deletePost = async (req, res) => {
+    try {
+        const postId = req.params.postId
+        if (!postId) {
+            return res.status(400).json({ success: false, message: "Post ID is required" });
+        }
+
+        const user = await userDao.findByEmail(req.user.email);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        const post = await postDao.findById(postId);
+        if (!post) {
+            return res.status(404).json({ success: false, message: "Post not found" });
+        }
+
+        if (!post.user.equals(user._id)) {
+            return res.status(403).json({ success: false, message: "Not authorized to delete this post" });
+        }
+
+        await postDao.deletePost(postId);
+        res.status(200).json({ success: true, message: "Post deleted successfully" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.savePost = async (req, res) => {
+    try {
+        const postId =  req.body.postId;
+        if (!postId) {
+            return res.status(400).json({ success: false, message: "Post ID is required" });
+        }
+
+        const user = await userDao.findByEmail(req.user.email);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+      
+        const post = await postDao.findById(postId);
+        if (!post) {
+            return res.status(404).json({ success: false, message: "Post not found" });
+        }
+
+        const isSaved = user.savedPosts.includes(postId);
+        if (isSaved) {
+            await userDao.removeSavedPost(user._id, postId);
+        } else {
+            await userDao.addSavedPost(user._id, postId);
+        }
+
+        res.status(200).json({ success: true, message: isSaved ? "Post unsaved" : "Post saved" });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
 
 exports.addComment = async (req, res) => {
     try {
-        const commentpost = await postModel.findOne({ _id: req.params.postId || req.query.postId });
+        const {postId, text} = req.body;
+
+        if(! text)  return res.status(404).json({success : false , message : "comment text is required"})
+
+        if(! postId) return res.status(400).json({ success: false, message: "Post ID is required" });
+
+        const commentpost = await postDao.findByIdWithPopulate(postId, 'user');
+
         if (!commentpost) {
             return res.status(404).json({ success: false, message: "Post not found" });
         }
 
-        const loginuser = await userModel.findOne({ email: req.user.email });
+        const loginuser = await userDao.findByEmail(req.user.email);
         if (!loginuser) {
             return res.status(403).json({ success: false, message: "Login user not found" });
-        }
-
-        const { text } = req.body;
-        if (!text) {
-            return res.status(400).json({ success: false, message: "Please provide text for the comment" });
         }
 
         const createdcomment = await commentModel.create({
@@ -139,14 +214,13 @@ exports.addComment = async (req, res) => {
     }
 }
 
-
 exports.viewPostComment = async (req, res) => {
     try {
         
-        const loginuser = await userModel.findOne({ email: req.user.email });
+        const loginuser = await userDao.findByEmail(req.user.email);
         if( ! loginuser) return res.status(403).json({success:false, message : "login user not found.."})
 
-        const post = await postModel.findById(req.query.postId || req.params.postId);
+        const post = await postDao.findByIdWithPopulate(req.query.postId || req.params.postId, 'comments');
         if(! post) return res.status(403).json({success:false , message : "post not found"})
 
         const comments = await commentModel.find({ post: post._id }).populate('user')
@@ -174,20 +248,14 @@ exports.viewPostComment = async (req, res) => {
     }
 }
 
-
 exports.getLikedPosts = async (req, res) => {
     try {
-        // const post = await postModel.findById({ _id: req.params.postId }).populate(`likes`).populate(`user`, 'stories');
-        const postId = req.query.postId || req.params.postId;
+        const postId = req.params.postId;
         if(! postId) return res.status(403).json({success:false, message : "please provdie post Id "})
-            const loginuser = await userModel.findOne({ email: req.user.email })
+            const loginuser = await userDao.findByEmail(req.user.email)
            if(! loginuser) return res.status(403).json({success:false, message : "login user is not found"})
-        const post = await postModel.findById(postId)
-            .populate('likes')
-            .populate({
-                path: 'user',
-                select: '_id stories' // _id is always included by default, so this will include _id and stories
-            });
+        const post = await postDao.findById(postId);
+           if(! post) return res.status(403).json({success:false, message : "post is not found"})
         res.status(200).json({success:true,  loginuser, post, totallikes: post.likes.length})
     } catch (error) {
         res.status(500).json({success:false, message : error.message});
@@ -197,33 +265,62 @@ exports.getLikedPosts = async (req, res) => {
 
 exports.likedPostUserSearch = async (req, res) => {
     try {
-        const postId = req.params.postId || req.query.postId;
-        if (!postId) return res.status(403).json({ success: false, message: "Please provide a post ID" });
+        const { postId, input } = req.query;
 
-        const post = await postModel.findById(postId).populate('likes');
-        if (!post) return res.status(403).json({ success: false, message: "Post not found" });
+        // Validate inputs
+        if (!postId || !input) {
+            return res.status(400).json({
+                success: false,
+                message: "Please provide both postId and input",
+            });
+        }
 
-        const input = req.query.input;
-        if (!input) return res.status(403).json({ success: false, message: "Please provide input for search" });
+        // Validate postId format
+        if (!mongoose.Types.ObjectId.isValid(postId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid post ID format",
+            });
+        }
+
+        // Find post with populated likes
+        const post = await postDao.findByIdWithPopulate(postId, 'likes');
+        if (!post) {
+            return res.status(404).json({
+                success: false,
+                message: "Post not found",
+            });
+        }
 
         const regex = new RegExp(input, 'i');
-        const users = await userModel.find({username : regex });
-        if(users.length === 0 ) return res.status(403).json({success:false, message : "Not find user you searched for ."})
-       
-        res.status(200).json({success:true, users})
-    } catch (error) {
-        if (error.name === 'CastError') {
-            return res.status(403).json({ success: false, message: "Invalid post ID format" });
-        }
-        res.status(500).json({ success: false, message: error.message });
-    }
-}
 
+        // Search only users who liked the post and match the input
+        const users = await userDao.getTotalUsersWhoLikesPostSearch(regex, post.likes);
+
+        if (!users.length) {
+            return res.status(404).json({
+                success: false,
+                message: "No users found matching your search.",
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            users,
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
+    }
+};
 
 
 exports.likeComment = async (req, res) => {
     try {
-        const loginuser = await userModel.findOne({ email: req.user.email });
+        const loginuser = await userDao.findByEmail(req.user.email);
         if (!loginuser) return res.status(403).json({ success: false, message: "login user not found" });
 
         const commentId = req.body.commentId || req.query.commentId;
@@ -245,126 +342,102 @@ exports.likeComment = async (req, res) => {
     }
 }
 
-
 exports.getRandomUserPost = async (req, res) => {
-    try {
-        // Fetch the logged-in user and open user details
-        const loginuser = await userModel.findOne({ email: req.user.email })
-            .populate("followers")
-            .populate("following")
-            .populate("blockedUsers");  // Ensure blockedUsers is populated
+  try {
+    const openuserId = req.query.openuserId;
+    const openpostId = req.query.openpostId;
 
-            if (!loginuser) return res.status(403).json({ success: false, message: "login user not found" });
-
-        const openUser = await userModel.findById(req.params.openuserId || req.query.openuserId)
-            .populate("followers")
-            .populate("following");
-
-
-            if (! openUser) return res.status(403).json({ success: false, message: "openUser not found" });
-
-
-        // Find the specific open post and populate its user
-        const openPost = await postModel.findById(req.params.openpostId || req.query.openpostId).populate("user");
-        if (!openPost) return res.status(403).json({ message: "openPost not found!" });
-
-        // Find random posts excluding blocked users and users with private accounts
-        const count = await postModel.countDocuments({
-            user: { $nin: loginuser.blockedUsers },  // Exclude blocked users
-        });
-
-        const randomIndex = Math.floor(Math.random() * count);
-
-        const randomPosts = await postModel.find({
-            user: { $nin: loginuser.blockedUsers }  // Exclude blocked users
-        })
-            .skip(randomIndex)
-            .limit(19)
-            .populate({
-                path: "user",
-                match: { privateAccount: false }  // Only include users whose privateAccount is false
-            });
-
-        // Filter out posts where the user is null (due to match excluding some users)
-        const filteredRandomPosts = randomPosts.filter(post => post.user);
-
-        // Combine the openPost with the filtered random posts
-        let posts = [openPost, ...filteredRandomPosts];
-        if( posts.length == 0)  return res.status(403).json({success:false, message : "could not find posts"})
-
-        // Respond with JSON containing posts, loginuser, and openUser
-        res.status(200).json({ posts, loginuser, openUser });
-
-    } catch (error) {
-        res.status(500).json({ success:false, message : error.message });
+    if (!openuserId || !openpostId) {
+      return res.status(400).json({
+        success: false,
+        message: "openUser ID and openPost ID are required."
+      });
     }
-}
 
+    const loginuser = await userDao.findByEmail(req.user.email);
+    if (!loginuser) {
+      return res.status(403).json({ success: false, message: "Login user not found" });
+    }
+
+    const openUser = await userDao.findById(openuserId);
+    if (!openUser) {
+      return res.status(403).json({ success: false, message: "Open user not found" });
+    }
+
+    const openPost = await postDao.findByIdWithPopulate(openpostId, 'user');
+    if (!openPost) {
+      return res.status(403).json({ message: "Open post not found!" });
+    }
+
+    // Exclude login user and open user from random selection
+    const excludeUserIds = [loginuser._id, openUser._id];
+    const randomPosts = await postDao.getRandomPosts(10, excludeUserIds); // you can adjust limit as needed
+
+    const filteredRandomPosts = randomPosts.filter(post => post.user);
+
+    const posts = [openPost, ...filteredRandomPosts];
+    if (posts.length === 0) {
+      return res.status(403).json({ success: false, message: "Could not find posts" });
+    }
+
+    res.status(200).json({ posts, loginuser, openUser });
+  } catch (error) {
+    console.error("Error in getRandomUserPost:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 exports.getLoginUserPost = async (req, res) => {
-    try {
-        const loginuser = await userModel.findOne({ email: req.user.email });
-
-        if (!loginuser) return res.status(403).json({ success: false, message: "login user not found" });
-
-
-        // const openPost = await postModel.findById(req.params.openpost).populate("user").populate("comments");
-        const openPost = await postModel.findById(req.params.openpostId || req.query.openpostId)
-            .populate("user")
-            .populate({
-                path: 'comments',
-                select: '_id text',
-                populate: {
-                    path: 'user',
-                    select: 'username'
-                }
-            });
-
-
-        if (!openPost) return res.status(403).json({ message: "Post not found!" });
-
-
-        const userPosts = await postModel.find({ user: loginuser._id, _id: { $ne: openPost._id } }).sort({ createdAt: -1 }).populate("user").populate({
-            path: 'comments',
-            select: '_id text',
-            populate: {
-                path: 'user',
-                select: 'username'
-            }
-        });
-
-        let insertIndex = 0;
-        for (let i = 0; i < userPosts.length; i++) {
-            if (userPosts[i].createdAt < openPost.createdAt) {
-                insertIndex = i;
-                break;
-            }
-        }
-
-
-        const posts = [...userPosts];
-        posts.splice(insertIndex, 0, openPost);
-
-        const limitedPosts = posts.slice(0, 20);
-
-        res.json({
-            posts: limitedPosts,
-            openPost,
-            loginuser,
-            dater: utils.formatRelativeTime
-        });
-    } catch (error) {
-        res.status(500).json({success:false, message : error.message })
+  try {
+    const openpostId = req.params.postId;
+    if (!openpostId) {
+      return res.status(403).json({ success: false, message: "Please provide post ID" });
     }
-}
+
+    const loginuser = await userDao.findByEmail(req.user.email);
+    if (!loginuser) {
+      return res.status(403).json({ success: false, message: "Login user not found" });
+    }
+
+    const openPost = await postDao.findByIdWithComments(openpostId);
+    if (!openPost) {
+      return res.status(403).json({ message: "Post not found!" });
+    }
+
+    const userPosts = await postDao.findUserPostsExcludingPost(loginuser._id, openPost._id);
+
+    let insertIndex = 0;
+    for (let i = 0; i < userPosts.length; i++) {
+      if (userPosts[i].createdAt < openPost.createdAt) {
+        insertIndex = i;
+        break;
+      }
+    }
+
+    const posts = [...userPosts];
+    posts.splice(insertIndex, 0, openPost);
+
+    const limitedPosts = posts.slice(0, 20);
+
+    res.json({
+      posts: limitedPosts,
+      openPost,
+      loginuser,
+      dater: utils.formatRelativeTime
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 
 
 exports.toggleCommentsOnPost = async (req, res) => {
     try {
-        const postId = req.query.postId || req.body.postId;
+        const { postId } = req.body;
         if(! postId) return res.status(403).json({success:false, message : "Please provide postId"})
 
-        const post = await postModel.findById(postId);
+        const post = await postDao.findById(postId);
         if (!post) {
             return res.status(404).json({ success: false, message: "Post not found" });
         }
@@ -376,13 +449,12 @@ exports.toggleCommentsOnPost = async (req, res) => {
     }
 }
 
-
 exports.toggleLikesOnPost = async (req, res) => {
       try {
-           const postId = req.query.postId || req.body.postId;
-           if(! postId) return res.status(403).json({success:false, message : "Please provide PostId"})
+           const {postId} = req.body;
+           if(! postId) return res.status(403).json({success:false, message : "Please provide Postid"})
 
-        const post = await postModel.findById(postId);
+        const post = await postDao.findById(postId);
         if (!post) {
             return res.status(404).json({ success: false, message: "Post not found" });
         }
@@ -394,24 +466,22 @@ exports.toggleLikesOnPost = async (req, res) => {
       }
 }
 
-
 exports.togglePinnedOnPost = async (req, res) => {
     try {
-        const loginUser = await userModel.findOne({ email: req.user.email }).populate('posts');
+        const loginUser = await userDao.findByEmail(req.user.email)
         if (!loginUser) {
             return res.status(404).json({ error: 'User not found' });
         }
-       
-        const postId = req.query.postId || req.body.postId ;
+        const {postId} = req.body;
         if (!postId) {
             return res.status(400).json({ success: false, message: "Post ID is required." });
         }
 
-        const post = await postModel.findById(postId);
+        const post = await postDao.findById(postId);
         if (!post) {
             return res.status(404).json({ success: false, message: "Post not found." });
         }
-
+         
         const postIndex = loginUser.posts.findIndex(p => p._id.toString() === postId);
         if (postIndex === -1) {
             return res.status(404).json({ error: 'Post not found in user\'s posts.' });
@@ -438,14 +508,13 @@ exports.togglePinnedOnPost = async (req, res) => {
     }
 }
 
-
 exports.getEditPost = async (req, res) => {
     try {
-        const post = await postModel.findById(req.params.postId || req.query.postId).populate("user")
+        const post = await postDao.findByIdWithPopulate(req.params.postId || req.query.postId, 'user');
         
         if (!post) return res.status(403).json({ message: "Post not found" })
 
-        const loginuser = await userModel.findOne({ email: req.user.email })
+        const loginuser = await userDao.findByEmail(req.user.email)
        if(! loginuser) return res.status(403).json({success:false, message : "user not found"})
 
         let dateObj = new Date(post.createdAt);
@@ -468,7 +537,6 @@ exports.getEditPost = async (req, res) => {
     }
 }
 
-
 exports.editPost = async (req, res) => {
     try {
         const { caption, postId} = req.body;
@@ -478,30 +546,13 @@ exports.editPost = async (req, res) => {
         const postid =  postId;
         if(! postid) return res.status(403).json({success:false, message : "please provide post id for edit the post"})
 
-        const post = await postModel.findOneAndUpdate({ _id: postid }, { $set: { caption } }, { new: true });
+        const post = await postDao.updatePost(postid, { caption });
         if (!post) {
             return res.status(404).json({ error: 'Post not found' });
         }
         res.status(200).json({success:true, message : "post edited successfully", post})
     } catch (error) {
         res.status(500).json({ error: error.message });
-    }
-}
-
-
-exports.deletePost = async (req, res) => {
-    try {
-        const postid = req.query.postId || req.params.postId;
-        if(! postid) return res.status(403).json({success:false, message : "please provide post id for delete the post"})
-
-        const post = await postModel.findByIdAndDelete(postid)
-        if (!post) return res.status(403).json({ message: "Post not found !" });
-        const loginuser = await userModel.findOne({ email: req.user.email })
-        loginuser.deletedContent.push(post);
-        await loginuser.save(); 
-        res.status(200).json({success:true, message : "Post Deleted successfully", post})
-    } catch (error) {
-        res.status(500).json({ success:false, message:error.message })
     }
 }
 

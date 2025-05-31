@@ -1,10 +1,8 @@
 const bcrypt = require('bcrypt');
 const nodemailer = require("nodemailer");
-const userModel = require("../models/user.model");
 const sendToken = require("../utils/sendtoken.utils");
 const crypto = require("crypto");
-
-
+const userDao = require('../Dao/user.dao');
 
 
 
@@ -24,8 +22,7 @@ exports.SignUp = async (req, res, next) => {
         if (!username || !fullname || !email || !password) {
             return res.status(400).json({ success: false, message: "Please provide all required details" });
         }
-
-        const user = await userModel.findOne({ email });
+        const user = await userDao.findByEmail(email);
         if (user) {
             return res.status(409).json({ success: false, message: "User is already registered." });
         }
@@ -33,12 +30,8 @@ exports.SignUp = async (req, res, next) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        const newUser = await userModel.create({
-            username,
-            fullname,
-            email,
-            password: hashedPassword
-        });
+        const newUser = await userDao.RegisterUser(username, fullname, email, hashedPassword)
+        if(! newUser) return res.status(500).json({success : false, message : "user not created" })
         sendToken(newUser, res);
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
@@ -54,7 +47,7 @@ exports.SignIn = async (req, res) => {
             return res.status(403).json({ success: false, message: "Please provide fields for sign in." });
         }
 
-        let user = await userModel.findOne({ email });
+        let user = await userDao.findByEmail(email);
         if (!user) return res.status(403).json({ success: false, message: "User not found with this email address." });
 
         const isMatch = await bcrypt.compare(password, user.password);
@@ -80,9 +73,8 @@ exports.getLoginuser = async (req, res) => {
             return res.status(404).json({ success: false, message: "User ID not found in request." });
         }
 
-        const loginUser = await userModel.findById(userId);
-        
-        if (!loginUser) {
+        const loginUser= await userDao.findById(userId);
+        if (! loginUser) {
             return res.status(403).json({ success: false, message: "Login user not found. Please check credentials." });
         }
 
@@ -110,7 +102,8 @@ exports.sentMail = async (req, res) => {
     try {
         const { email } = req.body;
         if (!email) return res.status(403).json({ success: false, message: "please provide email address for sending mail." });
-        const User = await userModel.findOne({ email });
+
+        const User = await userDao.findByEmail(email);
 
         if (!User) {
             return res.status(403).json({ success: false, message: "User Not Found" });
@@ -170,7 +163,8 @@ exports.updatePassword = async (req, res) => {
         }
 
         // Find the user by email
-        const user = await userModel.findOne({ email });
+
+        const user = await userDao.findByEmail(email);
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -238,7 +232,7 @@ exports.resetPassword = async (req, res) => {
 
     try {
         // Find user by email
-        const user = await userModel.findOne({ email });
+        const user = await userDao.findByEmail(email);
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -271,15 +265,16 @@ exports.resetPassword = async (req, res) => {
 exports.getTotalUsers = async (req, res) => {
     try {
         // Find total users
-        const totalUsers = await userModel.countDocuments();
+        const totalUsers = await userDao.getTotalUsersCount();
         if (totalUsers === 0) {
             return res.status(404).json({
                 success: false,
                 message: 'No users found.'
             });
         }
+
         // Get all user names
-        const allUsers = await userModel.find({}, 'username');
+        const allUsers = await userDao.getTotalUsersByUsernames();
         return res.status(200).json({
             success: true,
             totalUsers,

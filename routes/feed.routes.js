@@ -11,7 +11,7 @@ router.get("/home", authentication,  getFeeds)
 router.get("/users", authentication, searchUsers)
 
 // /feed/openprofile
-router.get("/openprofile", authentication, getOpenuserProfile)
+router.get("/openprofile/:userId", authentication, getOpenuserProfile)
 
 
 

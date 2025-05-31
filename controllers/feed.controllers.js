@@ -1,109 +1,74 @@
-const userModel = require("../models/user.model")
-const postModel = require("../models/post.model")
-const storyModel = require("../models/story.model")
-const utils = require("../utils/date.utils")
 
+// controllers/feed.controllers.js
+const feedDao = require('../dao/feed.dao');
+const userDao = require('../dao/user.dao');
+const utils = require("../utils/date.utils");
 
-exports.getFeeds = async(req, res, next) => {
+exports.getFeeds = async (req, res) => {
     try {
-        // Find the logged-in user's details
-        const loginuser = await userModel.findOne({ email: req.user.email });
-        // Exclude posts by blocked users
-        const allposts = await postModel.find({
-            $and: [
-                {
-                    $or: [
-                        { 'user': loginuser._id }, // Posts by the logged-in user
-                        { 'user': { $in: loginuser.following } }, // Posts by users the login user follows
-                        { 'user.privateAccount': false } // Posts by users with a public account
-                    ]
-                },
-                {
-                    'user': { $nin: loginuser.blockedUsers } // Exclude posts from blocked users
-                }
-            ]
-        }).populate('user').populate('comments');
+        const loginuser = await userDao.findByEmail(req.user.email);
+        if (!loginuser) return res.status(404).json({ success: false, message: "User not found" });
 
-
-        const allstory = await storyModel.find({
-            $and: [
-                { user: { $ne: loginuser._id } },
-                {
-                    $or: [
-                        { 'user.privateAccount': false },
-                        { user: { $in: loginuser.following } }
-                    ]
-                },
-                { user: { $nin: loginuser.blockedUsers } }
-            ]
-        }).populate('user');
+        const { allposts, allstory } = await feedDao.getFeeds(loginuser._id, loginuser.following, loginuser.blockedUsers);
 
         // Filter unique user stories
-        const obj = {};
-        const userStories = allstory.filter(story => {
-            if (!obj[story.user._id]) {
-                obj[story.user._id] = true;
-                return true;
+        const uniqueStories = [];
+        const seenUsers = new Set();
+        for (const story of allstory) {
+            if (!seenUsers.has(story.user._id.toString())) {
+                uniqueStories.push(story);
+                seenUsers.add(story.user._id.toString());
             }
-            return false;
+        }
+
+        res.status(200).json({
+            success: true,
+            loginuser,
+            allposts,
+            userStories: uniqueStories,
+            dater: utils.formatRelativeTime
         });
-
-        // Respond with JSON data instead of rendering a page
-        res.status(200).json({ success:true, loginuser, allposts, userStories, dater: utils.formatRelativeTime });
-    } catch (error) {
-        res.status(500).json({success:false, message : error.message})
-    }
-}
-
-
-
-exports.searchUsers = async(req, res, next) => {
-    try {
-
-        // Find the logged-in user's details
-        const loginuser = await userModel.findOne({ email: req.user.email });
-        if (!loginuser) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-        // Get the input parameter and create a regex for case-insensitive search
-        const input = req.params.input || req.query.input;
-        if(! input) return res.status(403).json({success:false, message: "Please Provide Input for Search the Users"})
-
-        const regex = new RegExp(`^${input}`, 'i');
-
-        // Find users matching the regex and exclude those in the blockedUsers array
-        const users = await userModel.find({
-            username: regex,
-            _id: { $nin: loginuser.blockedUsers } // Exclude users that are in the blockedUsers array
-        });
-        if(users.length == 0) return res.status(404).json({success:false, message : "Not have any users you searched for."})
-
-        res.status(200).json({success:true, users})
-
-    } catch (error) {
-       res.status(500).json({success:false, message:error.message})
-    }
-}
-
-
-exports.getOpenuserProfile = async (req, res, next) => {
-    try {
-        const loginuser = await userModel.findOne({ email: req.user.email });
-        if (!loginuser) {
-            return res.status(404).json({ success: false, message: "Logged-in user not found." });
-        }
-
-        const userId = req.params.userId || req.query.userId;
-        if(!userId) return res.status(403).json({success:false, message : "Please provide UserId for openProfile User"})
-
-        const openuser = await userModel.findOne({ _id: userId }).populate(`posts`);
-        if (!openuser) {
-            return res.status(404).json({ success: false, message: "Open user not found." });
-        }
-
-        // Respond with JSON data instead of rendering a page
-        res.status(200).json({ success:true, loginuser, openuser });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
-}
+};
+
+exports.searchUsers = async (req, res) => {
+    try {
+        const loginuser = await userDao.findByEmail(req.user.email);
+        if (!loginuser) return res.status(404).json({ error: 'User not found' });
+
+        const input = req.params.input || req.query.input;
+        if (!input) return res.status(403).json({ success: false, message: "Please provide input to search users" });
+
+        const regex = new RegExp(`^${input}`, 'i');
+        const users = await feedDao.searchUsers(regex, loginuser.blockedUsers);
+
+        if (users.length === 0) return res.status(404).json({ success: false, message: "No users found" });
+
+        res.status(200).json({ success: true, users });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.getOpenuserProfile = async (req, res) => {
+    try {
+        const loginuser = await userDao.findByEmail(req.user.email);
+        if (!loginuser) return res.status(404).json({ success: false, message: "Logged-in user not found." });
+
+        const userId = req.params.userId ;
+        if (!userId) return res.status(403).json({ success: false, message: "Please provide userId for open profile" });
+
+        const openuser = await feedDao.getOpenUserProfile(userId);
+        if (!openuser) return res.status(404).json({ success: false, message: "Open user not found." });
+
+        res.status(200).json({ success: true, loginuser, openuser });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+
+
+

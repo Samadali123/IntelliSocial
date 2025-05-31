@@ -1,79 +1,73 @@
-const userModel = require("../models/user.model")
-const storyModel = require("../models/story.model")
+const storyDao = require('../Dao/story.dao');
+const userDao = require('../Dao/user.dao');
 const mongoose = require("mongoose")
-
-
 
 exports.addStory = async (req, res) => {
     try {
-        const loginuser = await userModel.findOne({ email: req.user.email }).populate("myStories")
-        if(! loginuser) return res.status(403).json({success:false, message : "login user not found!!!"})
+        const loginuser = await userDao.findByEmail(req.user.email);
+        if(!loginuser) return res.status(403).json({success:false, message : "login user not found!!!"});
             
         if (!req.file.path) {
-            return res.status(403).json({ success: false, message: "Please upload path for uploading a Story" })
+            return res.status(403).json({ success: false, message: "Please upload path for uploading a Story" });
         }
 
-        const newStory = await storyModel.create({
+        const newStory = await storyDao.createStory({
             user: loginuser._id,
             image: req.file.path
-        })
-        loginuser.stories.push(newStory._id);
-        loginuser.myStories.push(newStory);
-        await loginuser.save();
+        });
+
+        await userDao.addStory(loginuser._id, newStory._id);
         res.status(200).json({ success: true, message: "Story uploaded successfully" });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message })
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
 
+
 exports.getStories = async (req, res) => {
     try {
-        const loginUser = await userModel.findOne({ email: req.user.email }).populate('stories');
-
-        // Check if the login user exists
+        const loginUser = await userDao.findByEmail(req.user.email);
         if (!loginUser) {
             return res.status(404).json({ success: false, message: "Login user not found!" });
         }
 
-        // Check if the user has stories
-        if (loginUser.stories.length > 0) {
-            return res.status(200).json({ success: true, stories: loginUser.stories });
+        const stories = await storyDao.findByUserIdWithPopulate(loginUser._id, 'user');
+        if (stories.length > 0) {
+            return res.status(200).json({ success: true, stories });
         } else {
             return res.status(204).json({ success: false, message: "No stories available." });
         }
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
-
-exports.getSingleStory = async(req, res)=>{
+exports.getSingleStory = async(req, res) => {
     try {
-         const storyID =  req.query.storyId || req.params.storyId;
-         if(! storyID) return res.status(403).json({success:false, message: "Story Id not found"})
-         const story = await storyModel.findById(storyID).exec();
-        res.status(200).json({success:true, message:"Story fetched successfully", story})
+        const storyID =  req.params.id;
+        if(!storyID) return res.status(403).json({success:false, message: "Story Id not found"});
+        
+        const story = await storyDao.findById(storyID);
+        res.status(200).json({success:true, message:"Story fetched successfully", story});
     } catch (error) {
-         res.status(500).json({ success: false, message: error.message});
+        res.status(500).json({ success: false, message: error.message});
     }
-}
-
+};
 
 exports.likeStory = async (req, res, next) => {
     try {
-        const storyId = req.params.storyId || req.query.storyId;
-        // Validate if storyId is a valid ObjectId
+        const storyId = req.body.storyId ;
         if (!mongoose.Types.ObjectId.isValid(storyId)) {
             return res.status(400).json({ error: "Invalid StoryId" });
         }
 
-        const likedStory = await storyModel.findById(storyId);
+        const likedStory = await storyDao.findById(storyId);
         if (!likedStory) {
             return res.status(404).json({ error: "Story not found" });
         }
 
-        const loginUser = await userModel.findOne({ email: req.user.email });
+        const loginUser = await userDao.findByEmail(req.user.email);
         if (!loginUser) {
             return res.status(404).json({ error: "User not found" });
         }
@@ -82,43 +76,38 @@ exports.likeStory = async (req, res, next) => {
         const storyIndexInUserLikes = loginUser.likedstories.indexOf(likedStory._id);
 
         if (userIndexInLikes === -1) {
-            // User hasn't liked the story yet
-            likedStory.likes.push(loginUser._id);
-            loginUser.likedstories.push(likedStory._id);
+            await storyDao.addLike(storyId, loginUser._id);
+            await userDao.addLikedStory(loginUser._id, storyId);
         } else {
-            // User already liked the story, so unlike it
-            likedStory.likes.splice(userIndexInLikes, 1);
-            loginUser.likedstories.splice(storyIndexInUserLikes, 1);
+            await storyDao.removeLike(storyId, loginUser._id);
+            await userDao.removeLikedStory(loginUser._id, storyId);
         }
 
-        await likedStory.save();
-        await loginUser.save();
         res.status(200).json({ success: true, message: "story liked successfully", likedStory });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
-}
-
+};
 
 exports.deleteStory = async (req, res, next) => {
     try {
-        const storyId = req.params.storyId || req.query.storyId;
+        const storyId = req.params.storyId 
         // Validate if storyId is a valid ObjectId
         if (!mongoose.Types.ObjectId.isValid(storyId)) {
             return res.status(400).json({ error: "Invalid StoryId" });
         }
 
-        const storyToDelete = await storyModel.findById(storyId);
+        const storyToDelete = await storyDao.findById(storyId);
         if (!storyToDelete) {
             return res.status(404).json({ error: "Story not found" });
         }
 
-        const loginUser = await userModel.findOne({ email: req.user.email });
+        const loginUser = await userDao.findByEmail(req.user.email);
         if (!loginUser) {
             return res.status(404).json({ error: "User not found" });
         }
 
-        await storyModel.findByIdAndDelete(storyId);
+        await storyDao.deleteStory(storyId);
         res.status(200).json({ success:true,message: "Story successfully deleted", story: storyToDelete });
 
     } catch (error) {

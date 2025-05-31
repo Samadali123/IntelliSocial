@@ -1,109 +1,175 @@
-const userModel = require("../models/user.model")
-const postModel = require("../models/post.model")
-const HighlightModel = require("../models/highlights.model")
-const storyModel = require("../models/story.model")
+const settingsDao = require('../Dao/settings.dao');
+const userDao = require('../Dao/user.dao');
 const commentModel = require("../models/comments.model")
-const utils = require("../utils/date.utils")
 const bcrypt = require("bcrypt");
 
-
-
-exports.getLoginUserSavedPosts = async (req, res, next) => {
+exports.getSavedPosts = async (req, res) => {
     try {
-        const loginuser = await userModel.findOne({ email: req.user.email }).populate("savedPosts");
-        
-        // Check if the user was found
-        if (!loginuser) {
-            return res.status(404).json({ success: false, message: "User not found!" });
+        if(! req.user.email) return res.status(403).json({ success: false, message: "User not Authorized" });
+        const user = await settingsDao.getSavedPosts(req.user.email);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
         }
-
-        // Check if the user has saved posts
-        if (!loginuser.savedPosts || loginuser.savedPosts.length === 0) {
-            return res.status(200).json({ success: true, message: "No saved posts found.", savedPosts: [] });
-        }
-
-        res.status(200).json({ success: true, savedPosts: loginuser.savedPosts });
+        res.status(200).json({ success: true, savedPosts: user.savedPosts });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
-
-exports.getOpenUserPosts = async (req, res, next) => {
+exports.getLikedPosts = async (req, res) => {
     try {
-        const loginuser = await userModel.findOne({ email: req.user.email }).populate("followers").populate("following");
-        if (!loginuser) {
-            return res.status(404).json({ success: false, message: "Logged-in user not found!" });
+                if(! req.user.email) return res.status(403).json({ success: false, message: "User not Authorized" });
+        const user = await userDao.findByEmail(req.user.email);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        const likedPosts = await settingsDao.getLikedPosts(user._id);
+        res.status(200).json({ success: true, likedPosts });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+
+exports.getUserPosts = async (req, res) => {
+    try {
+                if(! req.user.email) return res.status(403).json({ success: false, message: "User not Authorized" });
+        const user = await settingsDao.getUserPosts(req.user.email);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        res.status(200).json({ success: true, posts: user.posts });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.getUserHighlights = async (req, res) => {
+    try {
+                if(! req.user.email) return res.status(403).json({ success: false, message: "User not Authorized" });
+        const user = await settingsDao.getUserHighlights(req.user.email);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        res.status(200).json({ success: true, highlights: user.highlights });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.getSingleHighlight = async (req, res) => {
+    try {
+        const highlightId = req.params.highlightId ;
+        if (!highlightId) {
+            return res.status(400).json({ success: false, message: "Highlight ID is required" });
         }
 
-        const userId = req.query.userId || req.params.userId;
-        if(! userId) return res.status(404).json({success:false, message : "Please provide UserId "})
-
-        const openUser = await userModel.findById(userId).populate("followers").populate("following");
-        if (!openUser) {
-            return res.status(404).json({ success: false, message: "Open user not found!" });
+        const highlight = await settingsDao.getSingleHighlight(highlightId);
+        if (!highlight) {
+            return res.status(404).json({ success: false, message: "Highlight not found" });
         }
 
-       const postId = req.query.postId || req.params.postId || req.body.postId;
-       if(!postId) return res.status(404).json({success:false, message : "Please provide postId "});
+        res.status(200).json({ success: true, highlight });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
 
+exports.getArchiveStory = async (req, res) => {
+    try {
+        const storyId = req.params.storyId ;
+        if (!storyId) {
+            return res.status(400).json({ success: false, message: "Story ID is required" });
+        }
 
-        const openPost = await postModel.findById(postId).populate("user");
+        const story = await settingsDao.getArchiveStory(storyId);
+        if (!story) {
+            return res.status(404).json({ success: false, message: "Story not found" });
+        }
+
+        res.status(200).json({ success: true, story });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.getSinglePost = async (req, res) => {
+    try {
+        const postId = req.params.postId ;
+        if (!postId) {
+            return res.status(400).json({ success: false, message: "Post ID is required" });
+        }
+
+        const post = await settingsDao.getSinglePost(postId);
+        if (!post) {
+            return res.status(404).json({ success: false, message: "Post not found" });
+        }
+
+        res.status(200).json({ success: true, post });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.getOpenUserPosts = async (req, res) => {
+    try {
+        const userId = req.params.userId ;
+        if (!userId) {
+            return res.status(400).json({ success: false, message: "User ID is required" });
+        }
+
+        const user = await settingsDao.getOpenUserPosts(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        res.status(200).json({ success: true, user });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.getOpenUserLikedPosts = async (req, res) => {
+    try {
+        const userId =  req.query.userId;
+        const postId =  req.query.postId;
+        if (!userId || !postId) {
+            return res.status(400).json({ success: false, message: "User ID and Post ID are required" });
+        }
+
+        const { openPost, randomPosts } = await settingsDao.getOpenUserLikedPosts(userId, postId);
         if (!openPost) {
-            return res.status(403).json({ success: false, message: "Post not found!" });
+            return res.status(404).json({ success: false, message: "Post not found" });
         }
 
-        const count = await postModel.countDocuments();
-        if (count === 0) {
-            return res.status(200).json({ success: true, loginuser, posts: [], openUser, message: "No posts available." });
-        }
-
-        const randomIndex = Math.floor(Math.random() * count);
-        const randomPosts = await postModel.find().skip(randomIndex).limit(19).populate("user");
-        let posts = [openPost, ...randomPosts];
-        res.status(200).json({ success: true, loginuser, posts, openUser, dater: utils.formatRelativeTime });
-    } catch (error) {
-      res.status(500).json({success:false, message: error.mesage})
-    }
-}
-
-
-exports.getArchieveStory = async (req, res) => {
-    try {
-        const loginuser = await userModel.findOne({ email: req.user.email });
-        const storyId = req.query.storyId || req.params.storyId;
-        if(! storyId)  return res.status(403).json({success:false, message: "please provide stoyrid"})
-        const story = await storyModel.findById(storyId).populate("user");
-        if(! story) return res.status(403).json({success:false, message: "Story not found!!!"})
-       res.status(200).json({success:false, loginuser, story, dater:utils.formatRelativeTime})
-    } catch (error) {
-        res.status(500).json({success:false, nessage:error.message })
-    }
-}
-
-
-exports.getLoginuserLikedPosts = async (req, res, next) => {
-    try {
-        const loginuser = await userModel.findOne({ email: req.user.email });
-        if (!loginuser) {
-            return res.status(404).json({ success: false, message: "User not found!" });
-        }
-
-        const userPosts = await postModel.find({ likes: loginuser._id }).populate("user");
-        if (userPosts.length === 0) {
-            return res.status(404).json({ success: false, message: "Posts not found!" });
-        }
-
-        res.status(200).json({ success: true, loginuser, userPosts });
+        res.status(200).json({ success: true, openPost, randomPosts });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
-}
+};
 
+exports.removeUserContent = async (req, res) => {
+    try {
+        const user = await userDao.findByEmail(req.user.email);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        const updatedUser = await settingsDao.removeUserContent(user._id);
+        if (!updatedUser) {
+            return res.status(404).json({ success: false, message: "Failed to remove user content" });
+        }
+
+        res.status(200).json({ success: true, message: "User content removed successfully", user: updatedUser });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
 
 exports.getLoginuserCommentsOnPosts = async (req, res, next) => {
     try {
-        const loginuser = await userModel.findOne({ email: req.user.email });
+        if(! req.user.email) return res.status(403).json({ success: false, message: "User not Authorized" });
+        const loginuser = await userDao.findByEmail(req.user.email);
 
         if (!loginuser) {
             return res.status(404).json({ message: "User not found" });
@@ -152,10 +218,9 @@ exports.getLoginuserCommentsOnPosts = async (req, res, next) => {
     }
 }
 
-
 exports.getpostCommentsonPost= async (req, res) => {
     try {
-        const postId = req.query.postId || req.params.postId;
+        const postId =  req.params.postId;
         if(!postId) return res.status(403).json({success:false, message: "please provide postid"})
         const post = await postModel.findById(postId);
        if(! post) return   res.status(403).json({success:false, message: "post not found!! "})
@@ -176,7 +241,7 @@ exports.getpostCommentsonPost= async (req, res) => {
             let formattedDate = `${monthName} ${day}, ${year}`;
             comment.formattedDate = formattedDate;
         });
-        const loginuser = await userModel.findOne({ email: req.user.email });
+        const loginuser = await userDao.findByEmail(req.user.email);
         if(! loginuser) return res.status(403).json({success:false, message : "login user not found"})
         res.status(200).json({ success:true, loginuser, comments, post });
     } catch (error) {
@@ -184,216 +249,10 @@ exports.getpostCommentsonPost= async (req, res) => {
     }
 }
 
-
-exports.getOpenuserLikedonPost = async (req, res, next) => {
-    try {
-        const loginuser = await userModel.findOne({ email: req.user.email }).populate("followers").populate("following");
-        if (!loginuser) {
-            return res.status(404).json({ success: false, message: "User not found!" });
-        }
-
-        const userId = req.query.userId || req.params.userId;
-        if(!userId) return res.status(403).json({success:false, message: "pleas provide user id"});
-        
-        const openUser = await userModel.findById(userId).populate("followers").populate("following");
-        if (!openUser) {
-            return res.status(404).json({ success: false, message: "Open user not found!" });
-        }
-
-        const postId = req.query.postId || req.params.postId;
-        if(!postId) return res.status(403).json({success:false, message: "pleas provide post id"});
-        const openPost = await postModel.findById(postId || req.query.postId).populate("user");
-        if (!openPost) {
-            return res.status(404).json({ success: false, message: "Post not found!" });
-        }
-
-        const count = await postModel.countDocuments();
-        if (count === 0) {
-            return res.status(404).json({ success: false, message: "No posts available!" });
-        }
-
-        const randomIndex = Math.floor(Math.random() * count);
-        const randomPosts = await postModel.find().skip(randomIndex).limit(19).populate("user");
-        let posts = [openPost, ...randomPosts];
-
-        res.status(200).json({ success: true, posts, loginuser, openUser, dater: utils.formatRelativeTime });
-    } catch (error) {
-        res.status(500).json({ success: false, message: "An error occurred while processing your request." });
-    }
-}
-
-
-
-exports.getLoginuserPosts = async (req, res, next) => {
-    try {
-        const loginuser = await userModel.findOne({ email: req.user.email }).populate("posts");
-        
-        if (!loginuser) {
-            return res.status(404).json({ success: false, message: "User not found!" });
-        }
-
-        if(loginuser.posts.length == 0) return res.status(403).json({success:false, message : "soory you have'nt any posts..."})
-        res.status(200).json({ success: true, footer: true, loginuser });
-    } catch (error) {
-        res.status(500).json({ success: false, message:error.message });
-    }
-}
-
-
-
-exports.getSinglePost = async (req, res, next) => {
-    try {
-        const loginuser = await userModel.findOne({ email: req.user.email });
-        if (!loginuser) {
-            return res.status(404).json({ success: false, message: "User not found!" });
-        }
-
-        const postId = req.query.postId || req.params.postId;
-        if(! postId) return res.status(404).json({success:false, message : "PLeaee provide PostId"})
-
-    
-        const openPost = await postModel.findById(postId).populate("user");
-        if (!openPost) {
-            return res.status(404).json({ success: false, message: "Post not found!" });
-        }
-
-        res.status(200).json({
-            openPost,
-            loginuser,
-            dater: utils.formatRelativeTime
-        });
-    } catch (error) {
-        res.status(500).json({ success: false,  message: error.message });
-    }
-}
-
-
-
-exports.getLoginuserHighlights = async (req, res, next) => {
-    try {
-        const loginuser = await userModel.findOne({ email: req.user.email }).populate("highlights");
-
-        if (!loginuser) {
-            return res.status(404).json({ success: false, message: "User not found!" });
-        }
-
-        if (!loginuser.highlights || loginuser.highlights.length === 0) {
-            return res.status(204).json({ success: true, message: "No highlights available." });
-        }
-
-        res.status(200).json({ success:true, loginuser , highlights: loginuser.highlights });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-}
-
-
-
-exports.getSingleHighlight = async (req, res) => {
-    try {
-        // Fetch the logged-in user from the database
-        const loginuser = await userModel.findOne({ email: req.user.email });
-        if (!loginuser) {
-            return res.status(404).json({ success: false, message: "User not found!" });
-        }
-
-        // Extract the highlightId from params or query
-        const highlightId = req.params.highlightId || req.query.highlightId || req.body.highlightId;
-        if (!highlightId) {
-            return res.status(400).json({ success: false, message: "Please provide a valid HighlightId." });
-        }
-
-        // Find the highlight by ID and populate the user field
-        const highlight = await HighlightModel.findById(highlightId).populate("user");
-        if (!highlight) {
-            return res.status(404).json({ success: false, message: "Highlight not found!" });
-        }
-
-        // Check if there are any stories available
-        if (highlight.stories && highlight.stories.length > 0) {
-            const highlightImages = highlight.stories.map(story => story.image); // Get all highlight images
-            return res.status(200).json({
-                success: true,
-                highlightImages,
-                highlight,
-                loginuser,
-            });
-        } else {
-            return res.status(204).json({ success: false, message: "No stories available." });
-        }
-    } catch (error) {
-        // Handle unexpected errors
-        console.error(error);
-        res.status(500).json({ success: false, message: "Internal Server Error." });
-    }
-};
-
-
-
-exports.removeLoginuserContent = async (req, res) => {
-    try {
-        async function deleteUserContent(userId) {
-            try {
-                // Fetch the user by ID and populate references
-                const user = await userModel.findById(userId).populate('posts highlights stories');
-                if (!user) {
-                    res.status(403).json({success:false, message: "user not found"})
-                }
-
-                // Check if user has content
-                if (user.posts.length === 0 && user.highlights.length === 0 && user.stories.length === 0) {
-                    return { success: false, message: 'No content to delete' }; // Return a specific message if no content is found
-                }
-
-                // Delete all posts
-                await postModel.deleteMany({ _id: { $in: user.posts } });
-
-                // Delete all highlights
-                await HighlightModel.deleteMany({ _id: { $in: user.highlights } });
-
-                // Delete all stories
-                await storyModel.deleteMany({ _id: { $in: user.stories } });
-
-                // Clear references in the user document
-                user.posts = [];
-                user.highlights = [];
-                user.stories = [];
-                await user.save();
-
-                return { success: true, message: 'Content removed successfully' }; // Return a success message
-            } catch (error) {
-                return { success: false, message: error.message }; // Return error message
-            }
-        }
-
-        // Find the logged-in user
-        const loginUser = await userModel.findOne({ email: req.user.email });
-
-        if (!loginUser) {
-            return res.status(404).json({ success: false, message: 'User not found' });
-        }
-
-        // Call the function to delete content
-        const result = await deleteUserContent(loginUser._id);
-
-        if (!result.success) {
-            // Send a message if no content was found
-            return res.status(200).json({success:true, result});
-        }
-
-        // Return success response if content was successfully removed
-        return res.status(200).json({success:true, result});
-    } catch (error) {
-        // Handle errors
-        return res.status(500).json({ success: false, message: error.message });
-    }
-}
-
-
-
 exports.getAboutofLoginuser = async (req, res) => {
     try {
-        const loginuser = await userModel.findOne({ email: req.user.email });
+        if(! req.user.email) return res.status(403).json({ success: false, message: "User not Authorized" });
+        const loginuser = await userDao.findByEmail(req.user.email);
 
         if (loginuser && loginuser.Date) {  // Replace 'dateField' with the actual field name in your model
             const dateFormatter = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long' });
@@ -406,12 +265,11 @@ exports.getAboutofLoginuser = async (req, res) => {
     }
 }
 
-
-
 exports.loginuserAccountToggle = async (req, res) => {
     try {
+        if(! req.user.email) return res.status(403).json({ success: false, message: "User not Authorized" });
         // Find the user by email and toggle the privateAccount field
-        const loginuser = await userModel.findOne({ email: req.user.email });
+        const loginuser = await userDao.findByEmail(req.user.email);
         if (!loginuser) {
             return res.status(404).json({ success: false, message: "User not found" });
         }
@@ -423,11 +281,9 @@ exports.loginuserAccountToggle = async (req, res) => {
     }
 }
 
-
-
 exports.resetPasswordofLoginuser = async (req, res) => {
     const { currentPassword, newPassword, confirmPassword } = req.body;
-    const loginuser = await userModel.findOne({ email: req.user.email }); // Assuming user ID is attached to req.user
+    const loginuser = await userDao.findByEmail(req.user.email); // Assuming user ID is attached to req.user
 
     if (!currentPassword || !newPassword || !confirmPassword) {
         return res.status(400).json({ success: false, message: 'All fields are required.' });
@@ -439,7 +295,7 @@ exports.resetPasswordofLoginuser = async (req, res) => {
 
     try {
         // Find user by ID
-        const user = await userModel.findById(loginuser._id);
+        const user = await userDao.findById(loginuser._id);
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found.' });
         }
@@ -460,19 +316,25 @@ exports.resetPasswordofLoginuser = async (req, res) => {
     };
 }
 
-
-
 exports.blockUser = async (req, res, ) => {
     try {
 
+        if(! req.user.email) return res.status(403).json({ success: false, message: "User not Authorized" });
+
+        const { userId } = req.body;
+        if (!userId) {
+            return res.status(400).json({ success: false, message: "User ID is required." });
+        }
+
         // Fetch the logged-in user from the database
-        const loginUser = await userModel.findOne({ email: req.user.email });
+        const loginUser = await userDao.findByEmail(req.user.email);
         if (!loginUser) {
             return res.status(403).json({ success: false, message: "Logged-in user not found!" });
         }
 
+
         // Fetch the user to be blocked from the database
-        const userToBlock = await userModel.findById(req.body.userId);
+        const userToBlock = await userDao.findById(userId);
         if (!userToBlock) {
             return res.status(403).json({ success: false, message: "User to block not found. Please provide a valid user ID." });
         }
@@ -512,28 +374,26 @@ exports.blockUser = async (req, res, ) => {
     }
 }
 
-
-
 exports.getBlockedAccounts = async (req, res) => {
     try {
-        const loginuser = await userModel.findOne({ email: req.user.email }).populate("blockedUsers");
+        const loginuser = await userDao.findByEmail(req.user.email);
         return res.status(200).json({ success: true, loginuser });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
 }
 
-
-
 exports.unblockUser = async (req, res) => {
     try {
+        if(! req.user.email) return res.status(403).json({ success: false, message: "User not Authorized" });
+
         // Find the logged-in user by their email
-        const loginuser = await userModel.findOne({ email: req.user.email });
+        const loginuser = await userDao.findByEmail(req.user.email);
         if (!loginuser) {
             return res.status(403).json({ success: false, message: "Login user not found! Please login to continue." });
         }
-
-        const userToUnblockId = req.body.userId;
+         const { userId } = req.body
+        const userToUnblockId = userId
 
         // Ensure the user is not trying to unblock themselves
         if (loginuser._id.toString() === userToUnblockId.toString()) {
@@ -541,7 +401,7 @@ exports.unblockUser = async (req, res) => {
         }
 
         // Find the user to unblock by their ID
-        const userToUnblock = await userModel.findById(userToUnblockId);
+        const userToUnblock = await userDao.findById(userToUnblockId);
         if (!userToUnblock) {
             return res.status(404).json({ success:false, message: 'User to unblock not found.' });
         }
